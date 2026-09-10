@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2E7D32;
+  --color-primary-hover: #1b5e20;
+  --color-secondary: #F9A825;
+  --color-secondary-hover: #f57f17;
+  --color-accent: #1A237E;
+  --color-background: #FAFAFA;
+  --color-text-primary: #212121;
+  --color-text-muted: #757575;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  /* Inter font will be applied via layout/global styles or CDN, setting fallback here */
+  font-family: 'Inter', sans-serif;
+}

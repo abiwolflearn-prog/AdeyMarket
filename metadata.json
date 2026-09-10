@@ -1,0 +1,6 @@
+{
+  "name": "EthioInfluence",
+  "description": "Ethiopia's premier social commerce & creator affiliate marketplace connecting local brands with influencers, Telebirr & Arifpay payouts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
