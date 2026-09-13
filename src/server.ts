@@ -19,7 +19,43 @@ async function startServer() {
 
   await connectDB();
 
-  app.use(cors());
+  const allowedOrigins = [
+    "https://adeymarket.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+  ];
+
+  if (process.env.CLIENT_URL) {
+    allowedOrigins.push(process.env.CLIENT_URL);
+  }
+
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (such as mobile apps, curl, server-to-server, or same-origin)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.endsWith(".run.app") ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  };
+
+  app.use("/api", cors(corsOptions));
+  app.options("*", cors(corsOptions));
+
 
   app.use(
     helmet({
