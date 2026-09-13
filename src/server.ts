@@ -9,65 +9,105 @@ import dotenv from "dotenv";
 import { connectDB } from "./config/db";
 import { notFound, errorHandler } from "./middleware/errorHandler";
 
-// Load environment variables if not already loaded
 dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
-  // Trust reverse proxy (Cloud Run / Nginx) for accurate client IPs and rate limiting
   app.set("trust proxy", 1);
 
-  // Connect to Database
   await connectDB();
 
-  // Middleware
   app.use(cors());
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for dev / Vite compatibility, configure strictly in production
-  }));
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    })
+  );
+
   app.use("/api", morgan("dev"));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
-  // Security Hardening (Task 10.4)
-  const { apiLimiter, authLimiter, mongoSanitize, xssClean } = await import("./middleware/security");
+  const {
+    apiLimiter,
+    authLimiter,
+    mongoSanitize,
+    xssClean,
+  } = await import("./middleware/security");
+
   app.use("/api", apiLimiter);
   app.use("/api", mongoSanitize);
   app.use("/api", xssClean);
 
-  // API Routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", message: "EthioInfluence API is running" });
+    res.json({
+      status: "ok",
+      message: "EthioInfluence API is running",
+    });
   });
 
-  // Mount API Routers
-  app.use("/api/auth", authLimiter, (await import("./routes/authRoutes")).default);
-  app.use("/api/profile", (await import("./routes/profileRoutes")).default);
-  app.use("/api/shop", (await import("./routes/shopRoutes")).default);
-  app.use("/api/products", (await import("./routes/productRoutes")).default);
-  app.use("/api/referral", (await import("./routes/referralRoutes")).default);
-  app.use("/api/orders", (await import("./routes/orderRoutes")).default);
-  app.use("/api/payments", (await import("./routes/paymentRoutes")).default);
-  app.use("/api/campaigns", (await import("./routes/campaignRoutes")).default);
+  app.use(
+    "/api/auth",
+    authLimiter,
+    (await import("./routes/authRoutes")).default
+  );
 
-  // API Error Handling
+  app.use(
+    "/api/profile",
+    (await import("./routes/profileRoutes")).default
+  );
+
+  app.use(
+    "/api/shop",
+    (await import("./routes/shopRoutes")).default
+  );
+
+  app.use(
+    "/api/products",
+    (await import("./routes/productRoutes")).default
+  );
+
+  app.use(
+    "/api/referral",
+    (await import("./routes/referralRoutes")).default
+  );
+
+  app.use(
+    "/api/orders",
+    (await import("./routes/orderRoutes")).default
+  );
+
+  app.use(
+    "/api/payments",
+    (await import("./routes/paymentRoutes")).default
+  );
+
+  app.use(
+    "/api/campaigns",
+    (await import("./routes/campaignRoutes")).default
+  );
+
   app.use("/api", notFound);
   app.use(errorHandler);
 
-  // Vite middleware for development (handles frontend routing)
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+      },
       appType: "spa",
     });
+
     app.use(vite.middlewares);
   } else {
-    // Static files in production
     const distPath = path.join(process.cwd(), "dist");
+
     app.use(express.static(distPath));
+
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
@@ -75,7 +115,11 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});
