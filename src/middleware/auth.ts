@@ -25,6 +25,11 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
         res.status(401).json({ message: "Not authorized, user not found" });
         return;
       }
+      
+      if (user.status === "suspended") {
+        res.status(403).json({ message: "Not authorized, account suspended" });
+        return;
+      }
 
       // Attach user to the request object
       req.user = user;
@@ -44,7 +49,7 @@ export const optionalProtect = async (req: AuthRequest, res: Response, next: Nex
       const jwtSecret = process.env.JWT_SECRET || "fallback_access_secret";
       const decoded = jwt.verify(token, jwtSecret) as { userId: string };
       const user = await User.findById(decoded.userId).select("-passwordHash");
-      if (user) {
+      if (user && user.status !== "suspended") {
         req.user = user;
       }
     } catch {

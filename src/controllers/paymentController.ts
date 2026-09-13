@@ -26,8 +26,10 @@ export const calculateUserFinancials = async (userId: mongoose.Types.ObjectId | 
   }
 
   const uid = new mongoose.Types.ObjectId(userId);
+  const now = new Date();
 
   // 1. Cleared Seller earnings from delivered orders (payment must not be failed)
+  // Existing escrow behavior: seller earnings cleared once order is delivered
   const deliveredSellerOrders = await Order.find({
     sellerId: uid,
     orderStatus: "delivered",
@@ -35,13 +37,21 @@ export const calculateUserFinancials = async (userId: mongoose.Types.ObjectId | 
   });
   const sellerEarnings = deliveredSellerOrders.reduce((sum, o) => sum + (o.sellerPayout || 0), 0);
 
-  // 2. Cleared Creator referral earnings from delivered orders (payment must not be failed)
-  const deliveredAffiliateOrders = await Order.find({
+  // 2. Cleared Creator referral earnings:
+  // Must be delivered, payment not failed, not cancelled, and:
+  // EITHER commissionStatus === "confirmed" OR return window has completed (returnWindowEndsAt <= now)
+  const payableAffiliateOrders = await Order.find({
     referrerId: uid,
     orderStatus: "delivered",
     paymentStatus: { $ne: "failed" },
+    commissionStatus: { $ne: "cancelled" },
+    $or: [
+      { commissionStatus: "confirmed" },
+      { returnWindowEndsAt: { $lte: now } },
+      { returnWindowEndsAt: { $exists: false } },
+    ],
   });
-  const affiliateEarnings = deliveredAffiliateOrders.reduce((sum, o) => sum + (o.referrerCommission || 0), 0);
+  const affiliateEarnings = payableAffiliateOrders.reduce((sum, o) => sum + (o.referrerCommission || 0), 0);
 
   const totalEarned = Math.round((sellerEarnings + affiliateEarnings) * 100) / 100;
 
@@ -53,11 +63,20 @@ export const calculateUserFinancials = async (userId: mongoose.Types.ObjectId | 
   });
   const pendingSellerEarnings = pendingSellerOrders.reduce((sum, o) => sum + (o.sellerPayout || 0), 0);
 
-  // 4. Pending/Escrow Creator referral earnings (orders currently in transit)
+  // 4. Pending/Escrow Creator referral earnings:
+  // In transit (pending, processing, shipped), OR delivered but return/cancellation window still open
   const pendingAffiliateOrders = await Order.find({
     referrerId: uid,
-    orderStatus: { $in: ["pending", "processing", "shipped"] },
     paymentStatus: { $ne: "failed" },
+    orderStatus: { $in: ["pending", "processing", "shipped", "delivered"] },
+    commissionStatus: { $nin: ["confirmed", "cancelled"] },
+    $or: [
+      { orderStatus: { $in: ["pending", "processing", "shipped"] } },
+      {
+        orderStatus: "delivered",
+        returnWindowEndsAt: { $gt: now },
+      },
+    ],
   });
   const pendingAffiliateEarnings = pendingAffiliateOrders.reduce((sum, o) => sum + (o.referrerCommission || 0), 0);
 

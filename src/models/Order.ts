@@ -28,9 +28,15 @@ export interface IOrder extends Document {
   referrerCommission: number; // Commission paid to referrer
   sellerPayout: number; // Net amount received by seller (total - platformFee - referrerCommission)
   commissionRate: number; // Commission rate percentage applied (e.g. 10%)
+  commissionStatus?: "pending" | "confirmed" | "cancelled";
+  returnWindowDays?: number;
+  returnWindowEndsAt?: Date;
+  commissionPayableAt?: Date;
+  cancelledAt?: Date;
+  cancellationReason?: string;
   paymentMethod: "arifpay" | "telebirr" | "cash_on_delivery";
   paymentStatus: "pending" | "paid" | "failed";
-  orderStatus: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  orderStatus: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
   trackingNumber?: string;
   shippingCarrier?: string;
   shippedAt?: Date;
@@ -158,9 +164,34 @@ const orderSchema = new Schema<IOrder>(
     },
     orderStatus: {
       type: String,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled", "returned"],
       default: "pending",
       required: true,
+      index: true,
+    },
+    commissionStatus: {
+      type: String,
+      enum: ["pending", "confirmed", "cancelled"],
+      default: "pending",
+      index: true,
+    },
+    returnWindowDays: {
+      type: Number,
+      default: 7,
+    },
+    returnWindowEndsAt: {
+      type: Date,
+      index: true,
+    },
+    commissionPayableAt: {
+      type: Date,
+    },
+    cancelledAt: {
+      type: Date,
+    },
+    cancellationReason: {
+      type: String,
+      trim: true,
     },
     trackingNumber: {
       type: String,

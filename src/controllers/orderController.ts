@@ -5,6 +5,9 @@ import Product from "../models/Product";
 import Shop from "../models/Shop";
 import Campaign from "../models/Campaign";
 import User from "../models/User";
+import PartnershipAgreement from "../models/PartnershipAgreement";
+import ReferralLink from "../models/ReferralLink";
+import Transaction from "../models/Transaction";
 import { AuthRequest } from "../middleware/auth";
 
 /**
@@ -36,22 +39,44 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
 
     // Determine referrer: from body or cookie
     const cookieReferrer = req.cookies?.referral_creator_id;
+    const cookieAffiliateCode = req.cookies?.referral_affiliate_code;
     const rawReferrerId = bodyReferrerId || cookieReferrer;
     let validatedReferrerId: mongoose.Types.ObjectId | undefined;
+    let matchedAgreement: any = null;
 
-    if (rawReferrerId) {
+    if (cookieAffiliateCode) {
+      matchedAgreement = await PartnershipAgreement.findOne({
+        affiliateCode: cookieAffiliateCode,
+        status: "active",
+      });
+      if (matchedAgreement) {
+        validatedReferrerId = matchedAgreement.creatorId;
+      }
+    }
+
+    if (!validatedReferrerId && rawReferrerId) {
       if (mongoose.Types.ObjectId.isValid(rawReferrerId)) {
         validatedReferrerId = new mongoose.Types.ObjectId(rawReferrerId);
       } else {
         const cleanRef = String(rawReferrerId).trim();
-        const foundCreator = await User.findOne({
-          $or: [
-            { email: cleanRef.toLowerCase() },
-            { name: new RegExp(`^${cleanRef}$`, "i") },
-          ],
+        // Check if rawReferrerId is an affiliate tracking code
+        const codeAgreement = await PartnershipAgreement.findOne({
+          affiliateCode: cleanRef,
+          status: "active",
         });
-        if (foundCreator) {
-          validatedReferrerId = foundCreator._id as mongoose.Types.ObjectId;
+        if (codeAgreement) {
+          matchedAgreement = codeAgreement;
+          validatedReferrerId = codeAgreement.creatorId;
+        } else {
+          const foundCreator = await User.findOne({
+            $or: [
+              { email: cleanRef.toLowerCase() },
+              { name: new RegExp(`^${cleanRef}$`, "i") },
+            ],
+          });
+          if (foundCreator) {
+            validatedReferrerId = foundCreator._id as mongoose.Types.ObjectId;
+          }
         }
       }
     }
@@ -110,47 +135,74 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
       validatedReferrerId = undefined;
     }
 
-    // Check seller's shop to get default commission rate
+    // Commission rate logic:
+    // Direct order = 0% affiliate commission
+    // Referred order uses applicable creator commission
+    // Active promotional campaign rate strictly overrides shop default commission
     let commissionRate = 0;
-    const sellerShop = await Shop.findOne({ ownerId: primarySellerId });
-    if (sellerShop && typeof sellerShop.defaultCommissionRate === "number") {
-      commissionRate = Math.min(30, Math.max(0, sellerShop.defaultCommissionRate));
-    }
+    let referrerCommission = 0;
 
-    // Task 9.8: Check if any ordered products belong to an active campaign with a boosted commission rate
-    const now = new Date();
-    const orderedProductIds = validatedItems.map((item) => item.productId);
-    const activeCampaigns = await Campaign.find({
-      sellerId: primarySellerId,
-      status: { $ne: "draft" },
-      startDate: { $lte: now },
-      endDate: { $gte: now },
-      $or: [
-        { products: { $in: orderedProductIds } },
-        { products: { $size: 0 } }, // Storewide campaign applies to all products
-      ],
-    }).sort({ boostedCommissionRate: -1 });
-
-    if (activeCampaigns.length > 0) {
-      const topBoost = activeCampaigns[0].boostedCommissionRate;
-      if (topBoost > commissionRate) {
-        commissionRate = topBoost;
+    if (validatedReferrerId) {
+      // 1. Base rate from seller shop
+      const sellerShop = await Shop.findOne({ ownerId: primarySellerId });
+      if (sellerShop && typeof sellerShop.defaultCommissionRate === "number") {
+        commissionRate = Math.min(30, Math.max(0, sellerShop.defaultCommissionRate));
       }
-      // Record referral engagement in campaign metrics
-      activeCampaigns[0].totalSales = (activeCampaigns[0].totalSales || 0) + totalAmount;
-      activeCampaigns[0].totalReferrals = (activeCampaigns[0].totalReferrals || 0) + 1;
-      await activeCampaigns[0].save();
+
+      // 2. Active promotional campaign rate strictly overrides the shop default commission
+      const now = new Date();
+      const orderedProductIds = validatedItems.map((item) => item.productId);
+      const activeCampaigns = await Campaign.find({
+        sellerId: primarySellerId,
+        status: { $ne: "draft" },
+        startDate: { $lte: now },
+        endDate: { $gte: now },
+        $or: [
+          { products: { $in: orderedProductIds } },
+          { products: { $size: 0 } }, // Storewide campaign applies to all products
+        ],
+      }).sort({ boostedCommissionRate: -1 });
+
+      if (activeCampaigns.length > 0) {
+        // Active campaign boost strictly overrides default shop commission
+        commissionRate = activeCampaigns[0].boostedCommissionRate;
+        // Record referral engagement in campaign metrics
+        activeCampaigns[0].totalSales = (activeCampaigns[0].totalSales || 0) + totalAmount;
+        activeCampaigns[0].totalReferrals = (activeCampaigns[0].totalReferrals || 0) + 1;
+        await activeCampaigns[0].save();
+      }
+
+      // 3. If an active partnership agreement is linked to this referrer and seller, apply agreed rate
+      if (!matchedAgreement) {
+        matchedAgreement = await PartnershipAgreement.findOne({
+          creatorId: validatedReferrerId,
+          companyId: primarySellerId,
+          status: "active",
+          companyAccepted: true,
+          creatorAccepted: true,
+        });
+      }
+
+      if (matchedAgreement && matchedAgreement.commissionRate > commissionRate) {
+        commissionRate = matchedAgreement.commissionRate;
+      }
+
+      // If order was converted through an affiliate link, update conversion metric
+      if (matchedAgreement?.affiliateCode) {
+        await ReferralLink.updateMany(
+          { code: matchedAgreement.affiliateCode, productId: { $in: orderedProductIds } },
+          { $inc: { conversions: 1 } }
+        ).catch(() => {});
+      }
+
+      if (commissionRate > 0) {
+        referrerCommission = Math.round(totalAmount * (commissionRate / 100) * 100) / 100;
+      }
     }
 
     // Order Financial Calculations:
-    // Platform fee = 5%
+    // Platform fee = 5% of gross order value
     const platformFee = Math.round(totalAmount * 0.05 * 100) / 100;
-
-    // Referrer commission
-    let referrerCommission = 0;
-    if (validatedReferrerId && commissionRate > 0) {
-      referrerCommission = Math.round(totalAmount * (commissionRate / 100) * 100) / 100;
-    }
 
     // Seller payout = totalAmount - platformFee - referrerCommission
     const sellerPayout = Math.max(0, Math.round((totalAmount - platformFee - referrerCommission) * 100) / 100);
@@ -177,7 +229,9 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
       platformFee,
       referrerCommission,
       sellerPayout,
-      commissionRate,
+      commissionRate: validatedReferrerId ? commissionRate : 0,
+      commissionStatus: "pending",
+      returnWindowDays: 7,
       paymentMethod,
       paymentStatus: paymentMethod === "cash_on_delivery" ? "pending" : "paid", // Simulated payment success for digital
       orderStatus: "processing",
@@ -244,7 +298,7 @@ export const getOrders = async (req: AuthRequest, res: Response): Promise<void> 
  * @route   GET /api/orders/:id
  * @access  Public / Authenticated
  */
-export const getOrderById = async (req: Request, res: Response): Promise<void> => {
+export const getOrderById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
 
@@ -262,6 +316,33 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
 
     if (!order) {
       res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    // Authorization check for sensitive PII (customer details)
+    let isAuthorizedViewer = false;
+    if (req.user) {
+      const uId = req.user._id.toString();
+      if (
+        req.user.role === "admin" ||
+        (order.sellerId && (order.sellerId as any)._id.toString() === uId) ||
+        (order.buyerId && (order.buyerId as any)._id.toString() === uId) ||
+        (order.referrerId && (order.referrerId as any)._id.toString() === uId)
+      ) {
+        isAuthorizedViewer = true;
+      }
+    }
+
+    if (!isAuthorizedViewer) {
+      // Redact PII for public / unauthorized views
+      const sanitizedOrder = order.toObject();
+      sanitizedOrder.customerPhone = "***-***-****";
+      sanitizedOrder.customerEmail = "hidden@example.com";
+      if (sanitizedOrder.shippingAddress) {
+        sanitizedOrder.shippingAddress.street = "Hidden";
+        sanitizedOrder.shippingAddress.note = undefined;
+      }
+      res.status(200).json(sanitizedOrder);
       return;
     }
 
@@ -396,15 +477,174 @@ export const deliverOrder = async (req: AuthRequest, res: Response): Promise<voi
       order.paymentStatus = "paid";
     }
 
+    // Commission Lifecycle: Escrow Return/Cancellation Window
+    // Existing seller escrow behavior remains intact (sellerPayout becomes available upon delivery).
+    // Affiliate commission enters return/cancellation window and remains pending unless explicitly cleared.
+    const windowDays = typeof req.body.returnWindowDays === "number" ? req.body.returnWindowDays : (order.returnWindowDays ?? 7);
+    order.returnWindowDays = windowDays;
+
+    if (req.body.immediateRelease === true || windowDays === 0) {
+      order.returnWindowEndsAt = order.deliveredAt;
+      order.commissionStatus = "confirmed";
+      order.commissionPayableAt = new Date();
+
+      // Record transaction ledger entry for affiliate commission
+      if (order.referrerId && order.referrerCommission > 0) {
+        const commRef = `COMM-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        await Transaction.create({
+          userId: order.referrerId,
+          orderId: order._id,
+          type: "commission",
+          amount: order.referrerCommission,
+          currency: "ETB",
+          method: "telebirr",
+          status: "completed",
+          reference: commRef,
+          notes: `Affiliate commission for delivered order ${order.orderNumber}`,
+        }).catch((e) => console.warn("Commission transaction creation skipped:", e.message));
+      }
+    } else {
+      order.returnWindowEndsAt = new Date(order.deliveredAt.getTime() + windowDays * 24 * 60 * 60 * 1000);
+      order.commissionStatus = "pending";
+    }
+
     await order.save();
 
     res.status(200).json({
-      message: "Order successfully marked as delivered. Funds released to available balance.",
+      message: "Order successfully marked as delivered. Seller funds released to available balance; creator commission in return window.",
       order,
     });
   } catch (error: any) {
     console.error("Error marking order as delivered:", error);
     res.status(500).json({ message: "Server error while marking order as delivered" });
+  }
+};
+
+/**
+ * @desc    Confirm commission after return/cancellation window completion
+ * @route   PATCH /api/orders/:id/confirm-commission
+ * @access  Private
+ */
+export const confirmOrderCommission = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: "Invalid order ID" });
+      return;
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    if (order.orderStatus !== "delivered") {
+      res.status(400).json({ message: "Cannot confirm commission for an order that is not delivered" });
+      return;
+    }
+
+    if (order.commissionStatus === "cancelled") {
+      res.status(400).json({ message: "Cannot confirm commission for a cancelled or returned order" });
+      return;
+    }
+
+    if (order.commissionStatus === "confirmed") {
+      res.status(200).json({ message: "Commission already confirmed", order });
+      return;
+    }
+
+    order.commissionStatus = "confirmed";
+    order.commissionPayableAt = new Date();
+    await order.save();
+
+    // Record commission transaction in ledger
+    if (order.referrerId && order.referrerCommission > 0) {
+      const commRef = `COMM-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      await Transaction.create({
+        userId: order.referrerId,
+        orderId: order._id,
+        type: "commission",
+        amount: order.referrerCommission,
+        currency: "ETB",
+        method: "telebirr",
+        status: "completed",
+        reference: commRef,
+        notes: `Affiliate commission cleared for delivered order ${order.orderNumber} after return window completion`,
+      }).catch((e) => console.warn("Commission transaction creation skipped:", e.message));
+    }
+
+    res.status(200).json({
+      message: "Return/cancellation window completed. Commission confirmed and payable to creator.",
+      order,
+    });
+  } catch (error: any) {
+    console.error("Error confirming order commission:", error);
+    res.status(500).json({ message: "Server error while confirming commission" });
+  }
+};
+
+/**
+ * @desc    Cancel order and revoke pending affiliate commission
+ * @route   PATCH /api/orders/:id/cancel
+ * @access  Private
+ */
+export const cancelOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+    const id = req.params.id as string;
+    const { reason } = req.body;
+
+    if (!user) {
+      res.status(401).json({ message: "Not authorized" });
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: "Invalid order ID" });
+      return;
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      res.status(404).json({ message: "Order not found" });
+      return;
+    }
+
+    const isSeller = order.sellerId.toString() === user._id.toString();
+    const isBuyer = order.buyerId && order.buyerId.toString() === user._id.toString();
+    const isAdmin = (user.role as string) === "admin";
+
+    if (!isSeller && !isBuyer && !isAdmin) {
+      res.status(403).json({ message: "Not authorized to cancel this order" });
+      return;
+    }
+
+    if (order.orderStatus === "cancelled") {
+      res.status(400).json({ message: "Order is already cancelled" });
+      return;
+    }
+
+    // If order was delivered and return window has completed and commission confirmed, cannot simply cancel
+    if (order.commissionStatus === "confirmed" && order.returnWindowEndsAt && new Date() > order.returnWindowEndsAt) {
+      res.status(400).json({ message: "Return/cancellation window has passed for this delivered order" });
+      return;
+    }
+
+    order.orderStatus = "cancelled";
+    order.commissionStatus = "cancelled";
+    order.cancelledAt = new Date();
+    order.cancellationReason = reason || "Order cancelled";
+
+    await order.save();
+
+    res.status(200).json({
+      message: "Order successfully cancelled. Affiliate commission revoked.",
+      order,
+    });
+  } catch (error: any) {
+    console.error("Error cancelling order:", error);
+    res.status(500).json({ message: "Server error while cancelling order" });
   }
 };
 

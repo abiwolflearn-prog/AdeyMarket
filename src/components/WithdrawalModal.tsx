@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { api } from "../services/api";
 import { X, Smartphone, Building2, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
+import { ETHIOPIAN_BANKS } from "../pages/ProfileEdit";
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -10,26 +12,13 @@ interface WithdrawalModalProps {
   onSuccess?: () => void;
 }
 
-const ETHIOPIAN_BANKS = [
-  "Commercial Bank of Ethiopia (CBE)",
-  "Awash International Bank",
-  "Bank of Abyssinia",
-  "Dashen Bank",
-  "Cooperative Bank of Oromia",
-  "Hibret Bank",
-  "Nib International Bank",
-  "Wegagen Bank",
-  "Zemen Bank",
-  "Oromia International Bank",
-  "Amhara Bank",
-];
-
 export default function WithdrawalModal({
   isOpen,
   onClose,
   availableBalance,
   onSuccess,
 }: WithdrawalModalProps) {
+  const { user } = useAuth();
   const [payoutType, setPayoutType] = useState<"telebirr" | "bank_transfer">("telebirr");
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -37,6 +26,27 @@ export default function WithdrawalModal({
   const [bankName, setBankName] = useState(ETHIOPIAN_BANKS[0]);
   const [accountNumber, setAccountNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && user?._id) {
+      api.get(`/profile/${user._id}`).then(({ data }) => {
+        if (data.profile?.payoutInfo) {
+          const info = data.profile.payoutInfo;
+          if (info.preferredMethod) {
+            setPayoutType(info.preferredMethod);
+          }
+          if (info.phoneNumber) setPhoneNumber(info.phoneNumber);
+          if (info.accountHolderName) setAccountHolderName(info.accountHolderName);
+          if (info.bankName) setBankName(info.bankName);
+          if (info.accountNumber) setAccountNumber(info.accountNumber);
+        } else if (data.name) {
+          setAccountHolderName(data.name);
+        }
+      }).catch(() => {
+        // Non-blocking fallback
+      });
+    }
+  }, [isOpen, user?._id]);
 
   if (!isOpen) return null;
 

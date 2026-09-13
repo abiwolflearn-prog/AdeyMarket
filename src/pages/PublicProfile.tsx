@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../services/api";
-import { Loader2, ExternalLink, Instagram, Youtube, Twitter, CheckCircle2, User as UserIcon, Users, Briefcase, Store, ArrowRight } from "lucide-react";
+import { Loader2, ExternalLink, Instagram, Youtube, Twitter, CheckCircle2, User as UserIcon, Users, Briefcase, Store, ArrowRight, Building2, MapPin, Send, Sparkles, AtSign } from "lucide-react";
+import { getRoleDisplayName } from "../utils/roleUtils";
 
 export default function PublicProfile() {
   const { id } = useParams<{ id: string }>();
@@ -80,16 +81,34 @@ export default function PublicProfile() {
               </div>
               <div className="pb-2">
                 <h1 className="text-3xl font-bold text-stone-900 flex items-center gap-2">
-                  {profile.name}
+                  {roleData?.displayName || profile.name}
                   {isBrand && roleData.isApproved && (
                     <CheckCircle2 className="w-6 h-6 text-blue-500" />
                   )}
                 </h1>
-                <p className="text-stone-500 font-medium capitalize mt-1 flex items-center gap-1.5">
-                  {isCreator ? <UserIcon className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
-                  {profile.role}
-                  {isCreator && roleData.niche && ` • ${roleData.niche}`}
-                </p>
+                {isCreator && roleData.username && (
+                  <p className="text-sm font-medium text-stone-500 flex items-center gap-1 mt-0.5">
+                    @{roleData.username}
+                  </p>
+                )}
+                <div className="text-stone-500 text-sm font-medium capitalize mt-1.5 flex flex-wrap items-center gap-3">
+                  <span className="flex items-center gap-1.5">
+                    {isCreator ? <UserIcon className="w-4 h-4 text-stone-600" /> : isBrand ? <Building2 className="w-4 h-4 text-stone-600" /> : <Briefcase className="w-4 h-4 text-stone-600" />}
+                    {getRoleDisplayName(profile.role)}
+                  </span>
+                  {isCreator && roleData.niche && (
+                    <span className="flex items-center gap-1 text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      {roleData.niche}
+                    </span>
+                  )}
+                  {(roleData.city || profile.city) && (
+                    <span className="flex items-center gap-1 text-stone-600 text-xs font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-stone-400" />
+                      {roleData.city || profile.city}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -138,7 +157,12 @@ export default function PublicProfile() {
                         )}
                         {roleData.socialLinks.youtube && (
                           <a href={roleData.socialLinks.youtube} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-stone-700 hover:text-stone-900 transition-colors">
-                            <Youtube className="w-4 h-4" /> YouTube
+                            <Youtube className="w-4 h-4 text-red-500" /> YouTube
+                          </a>
+                        )}
+                        {roleData.socialLinks.telegram && (
+                          <a href={roleData.socialLinks.telegram.startsWith("http") ? roleData.socialLinks.telegram : `https://t.me/${roleData.socialLinks.telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-stone-700 hover:text-stone-900 transition-colors">
+                            <Send className="w-4 h-4 text-sky-500" /> Telegram
                           </a>
                         )}
                         {roleData.socialLinks.twitter && (
@@ -173,13 +197,12 @@ export default function PublicProfile() {
               )}
             </div>
 
-            {/* Right Column: Bio or Main Content (Placeholder for future phases like 'Recent Posts' or 'Active Campaigns') */}
+            {/* Right Column: Bio or Main Content */}
             <div className="md:col-span-2">
               <div className="prose prose-stone max-w-none">
                 <h3 className="text-lg font-semibold text-stone-900">About</h3>
-                <p className="text-stone-600 leading-relaxed mt-2">
-                  {/* Using a fallback bio since we haven't formally added a bio field yet to the base user model, but it's standard for profiles */}
-                  {profile.bio || `This is the public profile for ${profile.name}. More details, campaigns, and content will be displayed here as they interact with the platform.`}
+                <p className="text-stone-600 leading-relaxed mt-2 whitespace-pre-line">
+                  {roleData?.bio || profile.bio || `This is the public profile for ${roleData?.displayName || profile.name}. Content, collections, and collaborations will be featured here.`}
                 </p>
               </div>
 

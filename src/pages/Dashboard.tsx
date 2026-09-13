@@ -2,6 +2,8 @@ import React from "react";
 import { useAuth } from "../context/AuthContext";
 import CreatorDashboard from "./CreatorDashboard";
 import BrandDashboard from "./BrandDashboard";
+import BuyerDashboard from "./BuyerDashboard";
+import AdminDashboard from "./AdminDashboard";
 import { Loader2 } from "lucide-react";
 
 export default function Dashboard() {
@@ -15,6 +17,10 @@ export default function Dashboard() {
     );
   }
 
+  if (user.role === "admin") {
+    return <AdminDashboard />;
+  }
+
   if (user.role === "creator") {
     return <CreatorDashboard />;
   }
@@ -23,13 +29,7 @@ export default function Dashboard() {
     return <BrandDashboard />;
   }
 
-  // Fallback for consumer role (if they somehow get here, though they shouldn't have a dashboard in MVP)
-  return (
-    <div className="flex justify-center items-center h-[50vh]">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-stone-900 mb-2">Welcome, {user.name}!</h2>
-        <p className="text-stone-500">You are logged in as a Consumer. Start browsing shops to discover products!</p>
-      </div>
-    </div>
-  );
+  // Buyer (consumer) portal view
+  return <BuyerDashboard />;
 }
+

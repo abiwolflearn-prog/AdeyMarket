@@ -3,7 +3,19 @@ import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom"
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import { Loader2, Package, Link as LinkIcon, Share2, Check, ShoppingBag } from "lucide-react";
+import {
+  Loader2,
+  Package,
+  Link as LinkIcon,
+  Share2,
+  Check,
+  ShoppingBag,
+  ShieldCheck,
+  FileText,
+  AlertCircle,
+  ArrowRight,
+  Lock,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function PublicProduct() {
@@ -19,18 +31,21 @@ export default function PublicProduct() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [affiliateEligibility, setAffiliateEligibility] = useState<any>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchProductData();
     }
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
-    // Track referral if ref parameter exists
+    // Track referral if ref or code parameter exists
     const ref = searchParams.get("ref");
-    if (ref && id) {
-      api.post("/referral/track", { ref, productId: id }).catch(console.error);
+    const code = searchParams.get("code");
+    if ((ref || code) && id) {
+      api.post("/referral/track", { ref, code, productId: id }).catch(console.error);
     }
   }, [searchParams, id]);
 
@@ -59,6 +74,16 @@ export default function PublicProduct() {
       if (sellerShop) {
         setShop(sellerShop);
       }
+
+      // Check affiliate eligibility if logged in as creator
+      if (user && (user.role === "creator" || user.role === "brand") && user._id !== prodData.sellerId._id) {
+        try {
+          const { data: eligData } = await api.get(`/referral/check-eligibility/${id}`);
+          setAffiliateEligibility(eligData);
+        } catch (eligErr) {
+          console.error("Failed to check affiliate eligibility", eligErr);
+        }
+      }
     } catch (error) {
       toast.error("Product not found");
     } finally {
@@ -66,20 +91,47 @@ export default function PublicProduct() {
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!user || user.role === "consumer") {
       toast.error("You must be a Creator or Brand to generate affiliate links");
       return;
     }
 
-    const baseUrl = window.location.origin;
-    const affiliateUrl = `${baseUrl}/product/${product._id}?ref=${user._id}`;
-    
-    navigator.clipboard.writeText(affiliateUrl);
-    setCopied(true);
-    toast.success("Affiliate link copied to clipboard!");
-    
-    setTimeout(() => setCopied(false), 3000);
+    if (!affiliateEligibility?.isEligible) {
+      if (affiliateEligibility?.status === "pending_creator_acceptance") {
+        toast.error("Please accept the partnership agreement on the Campaigns page to unlock your link");
+        navigate("/campaigns");
+        return;
+      }
+      if (affiliateEligibility?.status === "pending_company_acceptance" || affiliateEligibility?.status === "pending_application") {
+        toast.error("Your application is still under review by the brand");
+        return;
+      }
+      toast.error("An active Partnership Agreement with the seller is required to generate affiliate links");
+      navigate("/campaigns");
+      return;
+    }
+
+    try {
+      setIsGeneratingLink(true);
+      const res = await api.post("/referral/generate-link", {
+        productId: product._id,
+        campaignId: affiliateEligibility?.agreement?.campaignId?._id || activeCampaign?._id,
+        agreementId: affiliateEligibility?.agreement?._id,
+      });
+
+      const affiliateUrl = res.data.link?.url || `${window.location.origin}/product/${product._id}?ref=${user._id}&code=${affiliateEligibility.affiliateCode}`;
+      
+      navigator.clipboard.writeText(affiliateUrl);
+      setCopied(true);
+      toast.success("Official partner tracking link copied!");
+      
+      setTimeout(() => setCopied(false), 3000);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to generate affiliate tracking link");
+    } finally {
+      setIsGeneratingLink(false);
+    }
   };
 
   if (isLoading) {
@@ -215,31 +267,106 @@ export default function PublicProduct() {
             
             {/* Affiliate Link Generation (For Creators/Brands only) */}
             {user && (user.role === "creator" || user.role === "brand") && user._id !== product.sellerId._id && (
-              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 mt-6">
-                <h3 className="font-semibold text-stone-900 mb-1 flex items-center gap-2">
-                  <Share2 className="w-4 h-4" /> Earn Commission
-                </h3>
-                <p className="text-sm text-stone-600 mb-4">
-                  {activeCampaign ? (
-                    <span>
-                      <strong className="text-purple-700 font-bold">{activeCampaign.boostedCommissionRate}% Boosted Commission</strong> is active for this campaign! (Normally {shop?.defaultCommissionRate || 0}%)
+              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 mt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-stone-900 flex items-center gap-2 text-sm">
+                    <Share2 className="w-4 h-4 text-stone-700" /> Affiliate Partnership
+                  </h3>
+                  {affiliateEligibility?.isEligible ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      <ShieldCheck className="w-3.5 h-3.5" /> Agreement Active
+                    </span>
+                  ) : affiliateEligibility?.status === "pending_creator_acceptance" ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                      <FileText className="w-3.5 h-3.5" /> Agreement Offered
                     </span>
                   ) : (
-                    <span>
-                      Share this product and earn a {shop?.defaultCommissionRate || 0}% commission on every sale.
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-stone-600 bg-stone-200/70 px-2.5 py-0.5 rounded-full">
+                      <Lock className="w-3 h-3" /> Agreement Required
                     </span>
                   )}
-                </p>
-                <button 
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-900 py-3 rounded-xl font-medium hover:bg-stone-50 transition-colors"
-                >
-                  {copied ? (
-                    <><Check className="w-4 h-4 text-green-600" /> Link Copied!</>
-                  ) : (
-                    <><LinkIcon className="w-4 h-4" /> Get Affiliate Link</>
-                  )}
-                </button>
+                </div>
+
+                {affiliateEligibility?.isEligible ? (
+                  <div className="space-y-2.5">
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-xs text-emerald-950 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Active Commission Rate:</span>
+                        <span className="font-extrabold text-purple-700">
+                          {affiliateEligibility.agreement.commissionRate}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Tracking Affiliate Code:</span>
+                        <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-bold text-purple-900">
+                          {affiliateEligibility.affiliateCode}
+                        </code>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleCopyLink}
+                      disabled={isGeneratingLink}
+                      className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors disabled:opacity-50"
+                    >
+                      {copied ? (
+                        <><Check className="w-4 h-4 text-emerald-400" /> Tracking Link Copied!</>
+                      ) : (
+                        <><LinkIcon className="w-4 h-4" /> Copy Official Tracking Link</>
+                      )}
+                    </button>
+                  </div>
+                ) : affiliateEligibility?.status === "pending_creator_acceptance" ? (
+                  <div className="space-y-2.5">
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-950">
+                      <p className="font-semibold mb-1">Brand approved your application!</p>
+                      <p className="text-purple-800 text-[11px] leading-relaxed">
+                        Sign the official Company ↔ Creator partnership agreement to unlock your unique tracking link and credentials.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate("/campaigns")}
+                      className="w-full flex items-center justify-center gap-2 bg-purple-700 hover:bg-purple-800 text-white py-2.5 rounded-xl font-medium text-xs transition-colors shadow-xs"
+                    >
+                      <FileText className="w-4 h-4" /> Review & Sign Agreement
+                    </button>
+                  </div>
+                ) : affiliateEligibility?.status === "pending_application" || affiliateEligibility?.status === "pending_company_acceptance" ? (
+                  <div className="space-y-2.5">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950">
+                      <p className="font-semibold mb-1">Application In Review</p>
+                      <p className="text-amber-800 text-[11px] leading-relaxed">
+                        Your campaign application is awaiting brand review and agreement setup. Tracking links are locked until activated.
+                      </p>
+                    </div>
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 bg-stone-100 text-stone-400 py-2.5 rounded-xl font-medium text-xs cursor-not-allowed border border-stone-200"
+                    >
+                      <Lock className="w-3.5 h-3.5" /> Tracking Link Locked
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <p className="text-xs text-stone-600 leading-relaxed">
+                      {activeCampaign ? (
+                        <span>
+                          <strong className="text-purple-700 font-bold">{activeCampaign.boostedCommissionRate}% Boosted Commission</strong> is available under campaign <strong>"{activeCampaign.title}"</strong>. An active partnership agreement is required to generate tracking credentials.
+                        </span>
+                      ) : (
+                        <span>
+                          Affiliate links are issued exclusively under an active Company ↔ Creator partnership agreement. Apply to a campaign with this brand to partner.
+                        </span>
+                      )}
+                    </p>
+                    <button
+                      onClick={() => navigate("/campaigns")}
+                      className="w-full flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-800 py-2.5 rounded-xl font-medium text-xs hover:bg-stone-100 transition-colors"
+                    >
+                      <span>Browse & Apply in Campaigns</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

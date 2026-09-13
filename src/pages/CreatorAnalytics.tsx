@@ -27,6 +27,7 @@ import {
 export default function CreatorAnalytics() {
   const { user } = useAuth();
   const [data, setData] = useState<CreatorAnalyticsResponse | null>(null);
+  const [financials, setFinancials] = useState({ totalWithdrawn: 0 });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeMetric, setActiveMetric] = useState<"clicks" | "orders" | "sales" | "commission">("commission");
@@ -36,11 +37,19 @@ export default function CreatorAnalytics() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get<CreatorAnalyticsResponse>("/referral/analytics");
-      if (response.data && response.data.summary) {
-        setData(response.data);
+      const [analyticsRes, balRes] = await Promise.all([
+        api.get<CreatorAnalyticsResponse>("/referral/analytics"),
+        api.get("/payments/balance").catch(() => ({ data: { totalWithdrawn: 0 } }))
+      ]);
+      
+      if (analyticsRes.data && analyticsRes.data.summary) {
+        setData(analyticsRes.data);
       } else {
         throw new Error("Invalid analytics payload structure");
+      }
+
+      if (balRes.data) {
+        setFinancials({ totalWithdrawn: balRes.data.totalWithdrawn || 0 });
       }
     } catch (err: any) {
       console.error("Failed to load creator analytics:", err);
@@ -289,7 +298,7 @@ export default function CreatorAnalytics() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Available Balance */}
             <div className="bg-stone-800/80 border border-stone-700/80 rounded-2xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between gap-3 mb-2">
@@ -329,6 +338,24 @@ export default function CreatorAnalytics() {
               </p>
               <p className="text-xs text-stone-400 mt-1">
                 Held securely in escrow until order delivery is confirmed.
+              </p>
+            </div>
+
+            {/* Total Withdrawals */}
+            <div className="bg-stone-800/80 border border-stone-700/80 rounded-2xl p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-stone-300">
+                    Total Withdrawn
+                  </span>
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-blue-300">
+                {formatCurrency(financials.totalWithdrawn)}
+              </p>
+              <p className="text-xs text-stone-400 mt-1">
+                All-time successful bank/wallet payouts.
               </p>
             </div>
           </div>

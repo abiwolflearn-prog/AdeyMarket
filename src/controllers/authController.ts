@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
+import BrandProfile from "../models/BrandProfile";
+import CreatorProfile from "../models/CreatorProfile";
 import { generateTokens } from "../utils/jwtUtils";
 import { registerSchema, loginSchema, resetPasswordSchema } from "../utils/validators";
 
@@ -17,7 +19,26 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { name, email, password, role } = value;
+    const { 
+      name, 
+      email, 
+      password, 
+      role, 
+      companyName, 
+      phone, 
+      city, 
+      address, 
+      businessCategory, 
+      taxId, 
+      website,
+      username,
+      niche,
+      bio,
+      tiktok,
+      instagram,
+      youtube,
+      telegram,
+    } = value;
     const normalizedEmail = email.trim().toLowerCase();
 
     const userExists = await User.findOne({ email: normalizedEmail });
@@ -30,17 +51,49 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
+      phone: phone ? phone.trim() : "",
       passwordHash: password, // Pre-save hook hashes this automatically
       role: role || "consumer",
     });
 
     if (user) {
+      // If brand/company, initialize BrandProfile with provided onboarding data
+      if (user.role === "brand") {
+        await BrandProfile.create({
+          userId: user._id,
+          companyName: (companyName && companyName.trim()) || name.trim(),
+          phone: phone ? phone.trim() : "",
+          city: city ? city.trim() : "",
+          address: address ? address.trim() : "",
+          businessCategory: businessCategory ? businessCategory.trim() : "",
+          taxId: taxId ? taxId.trim() : "",
+          website: website ? website.trim() : "",
+          isApproved: false,
+        });
+      } else if (user.role === "creator") {
+        await CreatorProfile.create({
+          userId: user._id,
+          displayName: name.trim(),
+          username: username ? username.trim().toLowerCase() : "",
+          niche: niche ? niche.trim() : "",
+          city: city ? city.trim() : "",
+          bio: bio ? bio.trim() : "",
+          socialLinks: {
+            tiktok: tiktok ? tiktok.trim() : "",
+            instagram: instagram ? instagram.trim() : "",
+            youtube: youtube ? youtube.trim() : "",
+            telegram: telegram ? telegram.trim() : "",
+          },
+        });
+      }
+
       const accessToken = generateTokens(res, user._id.toString());
 
       res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         profilePic: user.profilePic,
         accessToken,
@@ -70,6 +123,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const normalizedEmail = email.trim().toLowerCase();
 
     const user = await User.findOne({ email: normalizedEmail });
+
+    if (user && user.status === "suspended") {
+      res.status(403).json({ message: "Account suspended. Please contact support." });
+      return;
+    }
 
     if (user && (await user.comparePassword(password))) {
       const accessToken = generateTokens(res, user._id.toString());

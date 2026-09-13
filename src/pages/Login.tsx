@@ -273,7 +273,7 @@ export default function Login() {
                 <Building2 className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Brand Seller</p>
+                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Company</p>
                 <p className="text-[10px] text-stone-400 truncate">Addis Heritage</p>
               </div>
             </button>
@@ -288,8 +288,8 @@ export default function Login() {
                 <UserIcon className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Abel Bimrew</p>
-                <p className="text-[10px] text-stone-400 truncate">Creator Profile</p>
+                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Creator</p>
+                <p className="text-[10px] text-stone-400 truncate">Abel Bimrew</p>
               </div>
             </button>
 
@@ -303,7 +303,7 @@ export default function Login() {
                 <ShoppingBag className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Consumer</p>
+                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Buyer</p>
                 <p className="text-[10px] text-stone-400 truncate">Dawit Abebe</p>
               </div>
             </button>

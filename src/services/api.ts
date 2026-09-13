@@ -1,23 +1,25 @@
 import axios from "axios";
 
-// Determine the base URL dynamically based on environment
-// In AI Studio, the frontend runs on the same origin as the Express backend in production mode.
-// We use VITE_API_URL if explicitly defined, otherwise default to relative path "/api" 
-// which works for both local proxy setups and production single-origin deployments.
-const baseURL = (import.meta as any).env?.VITE_API_URL || "/api";
+// Determine the base URL dynamically based on environment.
+// In the integrated full-stack environment, relative path "/api" routes directly
+// to the local Express server. If VITE_API_URL is specified, we try it, with an
+// automatic fallback to "/api" if the external endpoint is unreachable (e.g. cold start/CORS).
+const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+let currentBaseURL = envApiUrl && envApiUrl.trim() !== "" ? envApiUrl : "/api";
 
 export const api = axios.create({
-  baseURL,
-  withCredentials: true, // Crucial for HTTP-only cookies in Phase 2
+  baseURL: currentBaseURL,
+  withCredentials: true, // Crucial for HTTP-only cookies
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 30000,
 });
 
 // Request interceptor: Attach access token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,13 +28,37 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: Global error handling and 401 auto-refresh
+// Response interceptor: Fallback to local /api on Network Error + Global error handling and 401 auto-refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
-    // Do NOT intercept auth endpoints (login, register, refresh, reset-password)
+    // 1. If an external VITE_API_URL fails with a Network Error (CORS block, Render down, timeout),
+    // automatically fallback to the local Express backend (/api) seamlessly.
+    if (!error.response && currentBaseURL !== "/api" && !(originalRequest as any)._fallbackTried) {
+      (originalRequest as any)._fallbackTried = true;
+      console.warn(`External API (${currentBaseURL}) unreachable (${error.message}). Falling back to local backend (/api)...`);
+      currentBaseURL = "/api";
+      api.defaults.baseURL = "/api";
+      originalRequest.baseURL = "/api";
+
+      return api(originalRequest);
+    }
+
+    // 1b. If a request times out or experiences a transient network disconnect during cold start, retry once
+    const isTimeoutOrNetwork = error.code === "ECONNABORTED" || error.message?.includes("timeout") || !error.response;
+    if (isTimeoutOrNetwork && !(originalRequest as any)._timeoutRetried && originalRequest.method?.toLowerCase() === "get") {
+      (originalRequest as any)._timeoutRetried = true;
+      console.warn(`Request to ${originalRequest.url} timed out/failed. Retrying after brief delay...`);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      return api(originalRequest);
+    }
+
+    // 2. Do NOT intercept auth endpoints for token refresh loops
     const url = originalRequest?.url || "";
     const isAuthEndpoint =
       url.includes("/auth/login") ||
@@ -43,13 +69,12 @@ api.interceptors.response.use(
     const hasStoredToken = typeof window !== "undefined" && !!localStorage.getItem("accessToken");
 
     // Only attempt refresh if 401, not already retried, not an auth endpoint, and user previously had a token
-    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint && hasStoredToken) {
-      originalRequest._retry = true;
+    if (error.response?.status === 401 && !(originalRequest as any)._retry && !isAuthEndpoint && hasStoredToken) {
+      (originalRequest as any)._retry = true;
 
       try {
-        // Use a fresh axios instance to avoid infinite interceptor loops
         const refreshResponse = await axios.post(
-          `${baseURL}/auth/refresh`,
+          `${currentBaseURL}/auth/refresh`,
           {},
           { withCredentials: true }
         );
@@ -83,3 +108,4 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+

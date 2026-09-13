@@ -5,6 +5,8 @@ import {
   getOrderById,
   updateOrderTracking,
   deliverOrder,
+  confirmOrderCommission,
+  cancelOrder,
 } from "../controllers/orderController";
 import { protect, optionalProtect } from "../middleware/auth";
 
@@ -17,13 +19,19 @@ router.post("/", optionalProtect, createOrder);
 router.get("/", protect, getOrders);
 
 // Get specific order details
-router.get("/:id", getOrderById);
+router.get("/:id", optionalProtect, getOrderById);
 
 // Seller adds shipping / tracking number
 router.patch("/:id/ship", protect, updateOrderTracking);
 
-// Mark order as delivered (releases escrow balance)
+// Mark order as delivered (releases seller escrow balance; commission enters return window)
 router.patch("/:id/deliver", protect, deliverOrder);
+
+// Confirm affiliate commission upon return/cancellation window completion
+router.patch("/:id/confirm-commission", protect, confirmOrderCommission);
+
+// Cancel order and revoke pending affiliate commission
+router.patch("/:id/cancel", protect, cancelOrder);
 
 export default router;
 

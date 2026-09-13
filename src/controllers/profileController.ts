@@ -122,10 +122,11 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { name, profilePic, ...profileData } = req.body;
+    const { name, phone, profilePic, ...profileData } = req.body;
 
     // Update base user fields
     if (name) user.name = name;
+    if (phone !== undefined) user.phone = phone;
     if (profilePic !== undefined) user.profilePic = profilePic;
     
     await user.save();

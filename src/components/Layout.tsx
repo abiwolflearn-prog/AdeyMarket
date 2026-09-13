@@ -26,6 +26,7 @@ import {
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { getRoleDisplayName, getPortalTitle } from "../utils/roleUtils";
 
 export default function Layout() {
   const { totalCount } = useCart();
@@ -391,7 +392,7 @@ export default function Layout() {
           {user && (
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
-                {user.role === "creator" ? "Creator Portal" : user.role === "brand" ? "Merchant Portal" : "Consumer Portal"}
+                {getPortalTitle(user.role)}
               </p>
               <nav aria-label="Role Navigation" className="space-y-1">
                 <Link
@@ -407,6 +408,22 @@ export default function Layout() {
                   </span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
+
+                {user.role === "consumer" && (
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isLinkActive("/dashboard") ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <ShoppingBasket className="w-4 h-4 text-[#2E7D32]" />
+                      <span>My Orders & Shipments</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </Link>
+                )}
 
                 {user.role === "creator" && (
                   <Link
@@ -484,7 +501,7 @@ export default function Layout() {
                   <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-green-100 text-[#2E7D32]">
-                      {user.role}
+                      {getRoleDisplayName(user.role)}
                     </span>
                     <span className="text-xs text-gray-500 truncate">{user.email}</span>
                   </div>

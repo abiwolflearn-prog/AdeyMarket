@@ -3,6 +3,10 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface IReferralClick extends Document {
   referrerId: mongoose.Types.ObjectId;
   productId?: mongoose.Types.ObjectId;
+  companyId?: mongoose.Types.ObjectId;
+  campaignId?: mongoose.Types.ObjectId;
+  agreementId?: mongoose.Types.ObjectId;
+  affiliateCode?: string;
   createdAt: Date;
 }
 
@@ -16,6 +20,22 @@ const referralClickSchema = new Schema<IReferralClick>(
     productId: {
       type: Schema.Types.ObjectId,
       ref: "Product",
+    },
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    campaignId: {
+      type: Schema.Types.ObjectId,
+      ref: "Campaign",
+    },
+    agreementId: {
+      type: Schema.Types.ObjectId,
+      ref: "PartnershipAgreement",
+    },
+    affiliateCode: {
+      type: String,
+      trim: true,
     },
   },
   {

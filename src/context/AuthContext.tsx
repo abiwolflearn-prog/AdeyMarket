@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { api } from "../services/api";
 
 // Mock User Types for Context
-export type Role = "creator" | "brand" | "consumer";
+export type Role = "creator" | "brand" | "consumer" | "admin";
 
 export interface User {
   _id: string;

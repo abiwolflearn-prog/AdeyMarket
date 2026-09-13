@@ -127,6 +127,16 @@ async function startServer() {
     (await import("./routes/campaignRoutes")).default
   );
 
+  app.use(
+    "/api/agreements",
+    (await import("./routes/agreementRoutes")).default
+  );
+
+  app.use(
+    "/api/admin",
+    (await import("./routes/adminRoutes")).default
+  );
+
   app.use("/api", notFound);
   app.use(errorHandler);
 

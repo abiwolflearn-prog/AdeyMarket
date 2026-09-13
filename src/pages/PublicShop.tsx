@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../services/api";
 import { Loader2, Store, Package, Search, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { getRoleDisplayName } from "../utils/roleUtils";
 
 export default function PublicShop() {
   const { slug } = useParams<{ slug: string }>();
@@ -86,7 +87,7 @@ export default function PublicShop() {
             
             <div className="flex-1 text-center md:text-left">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-semibold uppercase tracking-wider mb-3">
-                {shop.ownerRole}
+                {getRoleDisplayName(shop.ownerRole)}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-stone-900 mb-3">{shop.ownerId?.name || shop.shopSlug}</h1>
               <p className="text-stone-600 max-w-2xl leading-relaxed mb-6">

@@ -4,9 +4,11 @@ import bcrypt from "bcryptjs";
 export interface IUser extends Document {
   name: string;
   email: string;
+  phone?: string;
   passwordHash: string;
-  role: "creator" | "brand" | "consumer";
+  role: "creator" | "brand" | "consumer" | "admin";
   profilePic?: string;
+  status: "active" | "suspended";
   comparePassword(candidatePassword: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -25,19 +27,29 @@ const UserSchema: Schema<IUser> = new Schema(
       lowercase: true, 
       trim: true 
     },
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     passwordHash: { 
       type: String, 
       required: true 
     },
     role: { 
       type: String, 
-      enum: ["creator", "brand", "consumer"], 
+      enum: ["creator", "brand", "consumer", "admin"], 
       default: "consumer" 
     },
     profilePic: { 
       type: String, 
       default: "" 
     },
+    status: {
+      type: String,
+      enum: ["active", "suspended"],
+      default: "active"
+    }
   },
   { 
     timestamps: true 
