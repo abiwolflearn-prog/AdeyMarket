@@ -17,14 +17,28 @@ const upload = multer({
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
-      cb(new Error("Only images are allowed"));
+      cb(new Error("Unsupported image type"));
     }
   },
 });
 
+const handleMulterUpload = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  upload.single("avatar")(req, res, (err: any) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        res.status(400).json({ message: "Oversized image file (max 5MB)" });
+        return;
+      }
+      res.status(400).json({ message: err.message || "Unsupported image type" });
+      return;
+    }
+    next();
+  });
+};
+
 // Profile routes
 router.get("/:userId", getProfile); // Public viewing of a profile
 router.put("/", protect, updateProfile); // Update own profile
-router.post("/avatar", protect, upload.single("avatar"), uploadAvatar); // Upload own avatar
+router.post("/avatar", protect, handleMulterUpload, uploadAvatar); // Upload own avatar
 
 export default router;

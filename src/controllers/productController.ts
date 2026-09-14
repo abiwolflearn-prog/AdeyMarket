@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../config/cloudinary";
 import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import Product from "../models/Product";

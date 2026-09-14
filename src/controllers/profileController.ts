@@ -1,19 +1,11 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../config/cloudinary";
 import User from "../models/User";
 import CreatorProfile from "../models/CreatorProfile";
 import BrandProfile from "../models/BrandProfile";
 import Shop from "../models/Shop";
 import { AuthRequest } from "../middleware/auth";
-
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 /**
  * @desc    Get user profile (merged user + role profile)
@@ -80,7 +72,12 @@ export const uploadAvatar = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     if (!req.file) {
-      res.status(400).json({ message: "No image file provided" });
+      res.status(400).json({ message: "Image file is required" });
+      return;
+    }
+
+    if (!req.file.mimetype || !req.file.mimetype.startsWith("image/")) {
+      res.status(400).json({ message: "Unsupported image type" });
       return;
     }
 
@@ -96,7 +93,12 @@ export const uploadAvatar = async (req: AuthRequest, res: Response): Promise<voi
       transformation: [{ width: 500, height: 500, crop: "fill" }],
     });
 
-    // Update user's profilePic URL
+    if (!uploadResponse || !uploadResponse.secure_url) {
+      res.status(500).json({ message: "Image upload failed" });
+      return;
+    }
+
+    // Update user's profilePic URL in MongoDB
     user.profilePic = uploadResponse.secure_url;
     await user.save();
 
@@ -104,9 +106,17 @@ export const uploadAvatar = async (req: AuthRequest, res: Response): Promise<voi
       message: "Avatar updated successfully",
       profilePic: user.profilePic,
     });
-  } catch (error) {
-    console.error("Error in uploadAvatar:", error);
-    res.status(500).json({ message: "Server error while uploading avatar" });
+  } catch (error: any) {
+    const errorMsg = error?.message || "";
+    console.error("Error in uploadAvatar:", errorMsg);
+
+    // Return safe, useful error messages without leaking credentials or stack traces
+    if (errorMsg.includes("cloud_name") || errorMsg.includes("api_key") || errorMsg.includes("Cloudinary") || error?.http_code) {
+      res.status(500).json({ message: "Image upload failed" });
+      return;
+    }
+
+    res.status(500).json({ message: "Profile update failed" });
   }
 };
 /**
