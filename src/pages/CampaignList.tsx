@@ -368,10 +368,10 @@ export default function CampaignList() {
             )}
             {user?.role === "brand" && (
               <Link
-                to="/dashboard"
+                to="/company"
                 className="bg-stone-800 hover:bg-stone-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-colors min-h-[44px]"
               >
-                <Store className="w-4 h-4" /> Review Applications in Dashboard
+                <Store className="w-4 h-4" /> Review Applications in Company Portal
               </Link>
             )}
             {user?.role === "creator" && (
@@ -542,10 +542,10 @@ export default function CampaignList() {
                     {/* Role-based action */}
                     {isOwner ? (
                       <Link
-                        to="/dashboard"
+                        to="/company"
                         className="flex-1 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                       >
-                        <Users className="w-3.5 h-3.5" /> Manage In Dashboard
+                        <Users className="w-3.5 h-3.5" /> Manage In Company Portal
                       </Link>
                     ) : app?.status === "approved" ? (
                       app.partnershipAgreement?.status === "active" ? (

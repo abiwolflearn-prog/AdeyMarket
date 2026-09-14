@@ -41,7 +41,7 @@ export default function BrandDirectory() {
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-4">Discover Sellers</h1>
           <p className="text-lg text-stone-600 max-w-2xl mx-auto">
-            Explore amazing brands and creators on EthioInfluence. Shop their collections or partner with them to earn commissions.
+            Explore amazing brands and creators on Adey. Shop their collections or partner with them to earn commissions.
           </p>
         </div>
       </div>

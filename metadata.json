@@ -1,6 +1,6 @@
 {
-  "name": "EthioInfluence",
-  "description": "Ethiopia's premier social commerce & creator affiliate marketplace connecting local brands with influencers, Telebirr & Arifpay payouts.",
+  "name": "Adey",
+  "description": "Adey connects Ethiopian businesses, creators, and customers through social commerce and affiliate marketing.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

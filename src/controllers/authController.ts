@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User from "../models/User";
 import BrandProfile from "../models/BrandProfile";
 import CreatorProfile from "../models/CreatorProfile";
 import { generateTokens } from "../utils/jwtUtils";
 import { registerSchema, loginSchema, resetPasswordSchema } from "../utils/validators";
+import { AuthRequest } from "../middleware/auth";
 
 /**
  * @desc    Register a new user
@@ -87,7 +89,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         });
       }
 
-      const accessToken = generateTokens(res, user._id.toString());
+      const { accessToken, refreshToken } = generateTokens(res, user._id.toString(), user.email, user.role);
 
       res.status(201).json({
         _id: user._id,
@@ -97,6 +99,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         profilePic: user.profilePic,
         accessToken,
+        refreshToken,
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -130,7 +133,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (user && (await user.comparePassword(password))) {
-      const accessToken = generateTokens(res, user._id.toString());
+      const { accessToken, refreshToken } = generateTokens(res, user._id.toString(), user.email, user.role);
 
       res.json({
         _id: user._id,
@@ -138,7 +141,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         role: user.role,
         profilePic: user.profilePic,
+        phone: user.phone,
+        city: user.city,
+        address: user.address,
         accessToken,
+        refreshToken,
       });
     } else {
       res.status(401).json({ message: "Invalid email or password" });
@@ -174,7 +181,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     user.passwordHash = newPassword;
     await user.save();
 
-    const accessToken = generateTokens(res, user._id.toString());
+    const { accessToken, refreshToken } = generateTokens(res, user._id.toString(), user.email, user.role);
 
     res.json({
       message: "Password reset successfully",
@@ -184,6 +191,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       role: user.role,
       profilePic: user.profilePic,
       accessToken,
+      refreshToken,
     });
   } catch (error) {
     res.status(500).json({ message: (error as Error).message });
@@ -204,13 +212,13 @@ export const logout = (req: Request, res: Response): void => {
 };
 
 /**
- * @desc    Get new access token from refresh token
+ * @desc    Get new access token from refresh token (cookie or body)
  * @route   POST /api/auth/refresh
  * @access  Public
  */
 export const refresh = async (req: Request, res: Response): Promise<void> => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
       res.status(401).json({ message: "Not authorized, no refresh token" });
@@ -218,22 +226,52 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     }
 
     const refreshSecret = process.env.REFRESH_SECRET || "fallback_refresh_secret";
-    const decoded = jwt.verify(refreshToken, refreshSecret) as { userId: string };
+    const decoded = jwt.verify(refreshToken, refreshSecret) as { userId: string; email?: string; role?: string };
 
-    const user = await User.findById(decoded.userId);
+    let user: any = null;
+    if (decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)) {
+      user = await User.findById(decoded.userId);
+    }
+    if (!user && decoded.email) {
+      user = await User.findOne({ email: decoded.email.toLowerCase() });
+    }
 
     if (!user) {
       res.status(401).json({ message: "Not authorized, user not found" });
       return;
     }
 
-    const jwtSecret = process.env.JWT_SECRET || "fallback_access_secret";
-    const accessToken = jwt.sign({ userId: user._id }, jwtSecret, {
-      expiresIn: "15m",
-    });
+    const tokens = generateTokens(res, user._id.toString(), user.email, user.role);
 
-    res.json({ accessToken });
+    res.json({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
   } catch (error) {
     res.status(401).json({ message: "Not authorized, token failed" });
   }
+};
+
+/**
+ * @desc    Get current user profile
+ * @route   GET /api/auth/me
+ * @access  Private
+ */
+export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Not authorized" });
+    return;
+  }
+  res.json({
+    _id: req.user._id,
+    name: req.user.name,
+    email: req.user.email,
+    role: req.user.role,
+    profilePic: req.user.profilePic,
+    phone: req.user.phone,
+    city: req.user.city,
+    address: req.user.address,
+    bio: req.user.bio,
+    website: req.user.website,
+  });
 };

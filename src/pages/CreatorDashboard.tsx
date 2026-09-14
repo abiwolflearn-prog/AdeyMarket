@@ -162,7 +162,7 @@ export default function CreatorDashboard() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
-            to="/dashboard/analytics"
+            to="/creator/analytics"
             className="flex items-center gap-2 bg-[#2E7D32] hover:bg-green-800 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors"
           >
             <BarChart3 className="w-5 h-5 text-white" />
@@ -176,14 +176,14 @@ export default function CreatorDashboard() {
             Withdraw Earnings
           </button>
           <Link
-            to="/profile/edit"
+            to="/creator/profile"
             className="flex items-center gap-2 bg-stone-800 hover:bg-stone-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors"
           >
             <Sparkles className="w-5 h-5 text-amber-400" />
             Creator Profile
           </Link>
           <Link
-            to="/payouts"
+            to="/creator/payouts"
             className="flex items-center gap-2 bg-stone-800 hover:bg-stone-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors"
           >
             <Wallet className="w-5 h-5" />
@@ -284,8 +284,8 @@ export default function CreatorDashboard() {
         <div className="lg:col-span-2 bg-white rounded-3xl border border-stone-100 shadow-sm p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-stone-900">Recent Activity</h2>
-            <Link to="/orders" className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">
-              View all
+            <Link to="/creator/analytics" className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">
+              View analytics
             </Link>
           </div>
           

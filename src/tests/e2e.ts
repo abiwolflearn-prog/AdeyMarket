@@ -12,7 +12,7 @@ import PartnershipAgreement from "../models/PartnershipAgreement";
 dotenv.config();
 
 /**
- * EthioInfluence Financial Engine Logic (matching controllers/orderController.ts)
+ * Adey Financial Engine Logic (matching controllers/orderController.ts)
  */
 export function calculateOrderFinancials({
   totalAmount,
@@ -51,7 +51,7 @@ export function calculateOrderFinancials({
 }
 
 /**
- * EthioInfluence Automated End-to-End (E2E) Test Suite
+ * Adey Automated End-to-End (E2E) Test Suite
  * Covers:
  * Task 10.1: Seller creates product -> Creator promotes -> Consumer buys
  * Task 10.2: Direct purchase (no referral)
@@ -60,7 +60,7 @@ export function calculateOrderFinancials({
  */
 async function runE2ETests() {
   console.log("====================================================");
-  console.log("   🚀 EthioInfluence End-to-End (E2E) Test Suite   ");
+  console.log("   🚀 Adey End-to-End (E2E) Test Suite   ");
   console.log("====================================================\n");
 
   const isConnected = mongoose.connection.readyState === 1;

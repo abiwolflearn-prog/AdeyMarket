@@ -3,16 +3,30 @@ import { api } from "../services/api";
 import { Users, Store, Target, Receipt, CreditCard, CheckCircle, XCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
+import { getRoleHomeRoute } from "../utils/roleUtils";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   
   if (user?.role !== "admin") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getRoleHomeRoute(user?.role)} replace />;
   }
 
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(tabParam || "overview");
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
   const [metrics, setMetrics] = useState<any>({});
   const [companies, setCompanies] = useState<any[]>([]);
   const [creators, setCreators] = useState<any[]>([]);
@@ -147,7 +161,7 @@ export default function AdminDashboard() {
         {["overview", "companies", "creators", "campaigns", "agreements", "orders", "transactions"].map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => handleTabChange(tab)}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab
                 ? "border-stone-900 text-stone-900"

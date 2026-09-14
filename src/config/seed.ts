@@ -4,12 +4,30 @@ import Shop from "../models/Shop";
 import Product from "../models/Product";
 import Campaign from "../models/Campaign";
 import BrandProfile from "../models/BrandProfile";
+import Order from "../models/Order";
 
 export async function seedDemoData() {
   try {
+    // Ensure Admin users exist
+    const adminExists = await User.findOne({ role: "admin" });
+    if (!adminExists) {
+      await User.create({
+        name: "Adey System Admin",
+        email: "admin@adey.com",
+        passwordHash: "Password123!",
+        role: "admin",
+      });
+      await User.create({
+        name: "Platform Admin",
+        email: "admin@ethioinfluence.com",
+        passwordHash: "Password123!",
+        role: "admin",
+      });
+    }
+
     const existingUsers = await User.countDocuments();
-    if (existingUsers > 0) {
-      console.log("ℹ️ Database already contains data. Skipping initial seeding.");
+    if (existingUsers > 2) {
+      console.log("ℹ️ Database already contains data. Skipping initial product seeding.");
       return;
     }
 
@@ -52,11 +70,14 @@ export async function seedDemoData() {
     });
 
     // 4. Create Demo Consumer
-    await User.create({
+    const buyerUser = await User.create({
       name: "Dawit Abebe",
       email: "buyer@ethioinfluence.com",
       passwordHash: "Password123!",
       role: "consumer",
+      phone: "+251911223344",
+      city: "Addis Ababa",
+      address: "Bole Medhanialem, Near Edna Mall",
     });
 
     // 5. Create Artisan Products
@@ -153,6 +174,47 @@ export async function seedDemoData() {
       totalReferrals: 8,
       totalSales: 22400,
     });
+
+    // 7. Create Demo Order for the buyer
+    if (buyerUser && brandUser && creatorUser && prod1) {
+      await Order.create({
+        orderNumber: "ETH-ADE-84920",
+        buyerId: buyerUser._id,
+        sellerId: brandUser._id,
+        referrerId: creatorUser._id,
+        items: [
+          {
+            productId: prod1._id,
+            name: prod1.name,
+            price: prod1.price,
+            quantity: 1,
+            image: prod1.images[0],
+          },
+        ],
+        customerName: buyerUser.name,
+        customerPhone: buyerUser.phone || "+251911223344",
+        customerEmail: buyerUser.email,
+        shippingAddress: {
+          street: "Bole Medhanialem, Suite 402",
+          city: "Addis Ababa",
+          subcity: "Bole",
+          note: "Deliver to office security desk",
+        },
+        totalAmount: prod1.price,
+        platformFee: Math.round(prod1.price * 0.05),
+        referrerCommission: Math.round(prod1.price * 0.15),
+        sellerPayout: Math.round(prod1.price * 0.8),
+        commissionRate: 15,
+        commissionStatus: "pending",
+        returnWindowDays: 7,
+        paymentMethod: "telebirr",
+        paymentStatus: "paid",
+        orderStatus: "shipped",
+        trackingNumber: "ET-POST-773921",
+        shippingCarrier: "Ethiopian Postal Service",
+        shippedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      });
+    }
 
     console.log("✅ Ethiopian marketplace demo data successfully seeded!");
   } catch (err) {

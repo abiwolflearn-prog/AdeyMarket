@@ -273,7 +273,7 @@ export default function CampaignCreate() {
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Tell creators how to highlight your brand (e.g. Unboxing video on TikTok, styling reel on Instagram, include #EthioInfluence)..."
+              placeholder="Tell creators how to highlight your brand (e.g. Unboxing video on TikTok, styling reel on Instagram, include #Adey)..."
               className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
             />
           </div>

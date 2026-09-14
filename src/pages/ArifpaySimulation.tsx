@@ -47,7 +47,7 @@ export default function ArifpaySimulation() {
           </div>
           <p className="text-xs text-blue-200">Ethiopian Unified Payment Gateway (Sandbox)</p>
           <div className="mt-4 pt-4 border-t border-blue-800 flex justify-between items-center text-xs">
-            <span className="text-blue-200">EthioInfluence Merchant</span>
+            <span className="text-blue-200">Adey Merchant</span>
             <span className="font-mono text-blue-100 font-bold">{ref}</span>
           </div>
         </div>

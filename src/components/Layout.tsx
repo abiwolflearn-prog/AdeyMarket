@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { 
   Search, 
   User, 
@@ -26,19 +27,31 @@ import {
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { getRoleDisplayName, getPortalTitle } from "../utils/roleUtils";
+import { getRoleDisplayName, getPortalTitle, getRoleHomeRoute } from "../utils/roleUtils";
+import { PageTransition } from "./animations/PageTransition";
 
 export default function Layout() {
   const { totalCount } = useCart();
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSearchQuery, setMobileSearchQuery] = useState("");
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Monitor scroll for subtle navbar elevation
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 12);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -103,16 +116,23 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FAFAFA] text-[#212121] font-sans">
       {/* 1. Header Structure (Strict Cozy® Clone) */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
+      <motion.header
+        initial={shouldReduceMotion ? false : { opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className={`sticky top-0 z-40 transition-all duration-300 ${
+          isScrolled ? "bg-white/95 backdrop-blur-md shadow-xs border-b border-gray-200" : "bg-white border-b border-gray-200"
+        }`}
+      >
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4 md:gap-8">
           
           {/* Logo */}
           <Link 
             to="/" 
             id="brand-logo"
-            className="text-2xl sm:text-3xl font-bold tracking-tight shrink-0 focus:outline-none focus:ring-2 focus:ring-[#2E7D32] rounded"
+            className="text-2xl sm:text-3xl font-bold tracking-tight shrink-0 focus:outline-none focus:ring-2 focus:ring-[#2E7D32] rounded group"
           >
-            EthioInfluence<sup className="text-xs sm:text-sm font-normal">®</sup>
+            Adey<sup className="text-xs sm:text-sm font-normal">®</sup>
           </Link>
 
           {/* Desktop Search Bar */}
@@ -158,10 +178,19 @@ export default function Layout() {
             >
               Brands
             </Link>
+            {user && (
+              <Link 
+                to={getRoleHomeRoute(user.role)} 
+                className={`transition-colors flex items-center gap-1.5 ${isLinkActive(getRoleHomeRoute(user.role)) ? "text-[#2E7D32] font-semibold" : "hover:text-[#2E7D32]"}`}
+              >
+                <LayoutDashboard className="w-4 h-4 text-emerald-700" />
+                <span>{getPortalTitle(user.role)}</span>
+              </Link>
+            )}
             {user && user.role === "creator" && (
               <Link 
-                to="/dashboard/analytics" 
-                className={`transition-colors flex items-center gap-1.5 ${isLinkActive("/dashboard/analytics") ? "text-[#2E7D32] font-semibold" : "hover:text-[#2E7D32]"}`}
+                to="/creator/analytics" 
+                className={`transition-colors flex items-center gap-1.5 ${isLinkActive("/creator/analytics") ? "text-[#2E7D32] font-semibold" : "hover:text-[#2E7D32]"}`}
               >
                 <BarChart3 className="w-4 h-4 text-emerald-700" />
                 <span>Analytics</span>
@@ -182,12 +211,17 @@ export default function Layout() {
           {/* User Actions & Mobile Trigger */}
           <div className="flex items-center gap-3 sm:gap-6 text-sm font-medium">
             <Link 
-              to={user ? "/dashboard" : "/login"} 
+              to={user ? getRoleHomeRoute(user.role) : "/login"} 
               id="nav-account-link"
               className="hidden sm:flex items-center gap-2 hover:text-[#2E7D32] transition-colors"
             >
               <User className="w-5 h-5 text-gray-700" />
-              <span>{user ? user.name.split(" ")[0] : "Sign In"},</span>
+              <span>{user ? user.name.split(" ")[0] : "Sign In"}</span>
+              {user && (
+                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200">
+                  {getRoleDisplayName(user.role)}
+                </span>
+              )}
             </Link>
             
             <Link 
@@ -202,16 +236,25 @@ export default function Layout() {
             <Link 
               to="/bag" 
               id="nav-bag-link"
-              className="flex items-center gap-2 hover:text-[#2E7D32] transition-colors relative min-h-[44px] px-1"
+              className="flex items-center gap-2 hover:text-[#2E7D32] transition-colors relative min-h-[44px] px-1 group"
               aria-label={`Shopping Bag, ${totalCount} items`}
             >
               <div className="relative">
-                <ShoppingBag className="w-5 h-5 text-gray-700" />
-                {totalCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-stone-900 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                    {totalCount > 9 ? "9+" : totalCount}
-                  </span>
-                )}
+                <ShoppingBag className="w-5 h-5 text-gray-700 group-hover:scale-105 transition-transform" />
+                <AnimatePresence mode="wait">
+                  {totalCount > 0 && (
+                    <motion.span
+                      key={totalCount}
+                      initial={shouldReduceMotion ? false : { scale: 0.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.6, opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute -top-1.5 -right-2 bg-stone-900 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-xs"
+                    >
+                      {totalCount > 9 ? "9+" : totalCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </div>
               <span className="hidden xs:inline">Bag</span>
             </Link>
@@ -231,48 +274,55 @@ export default function Layout() {
           </div>
 
         </div>
-      </header>
+      </motion.header>
 
       {/* 2. Responsive Mobile Navigation Drawer */}
-      {mobileMenuOpen && (
-        <div 
-          id="mobile-nav-backdrop"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs transition-opacity md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div 
+              id="mobile-nav-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs md:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-hidden="true"
+            />
 
-      <div
-        id="mobile-navigation-drawer"
-        ref={drawerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Mobile Navigation Drawer"
-        className={`fixed inset-y-0 right-0 z-50 w-[85vw] max-w-sm bg-white shadow-2xl flex flex-col justify-between overflow-y-auto transform transition-transform duration-300 ease-in-out md:hidden ${
-          mobileMenuOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        {/* Drawer Header */}
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <Link 
-            to="/" 
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-2xl font-bold tracking-tight text-gray-900"
-          >
-            EthioInfluence<sup className="text-xs font-normal">®</sup>
-          </Link>
-          <button
-            ref={closeButtonRef}
-            id="mobile-nav-close-btn"
-            type="button"
-            onClick={() => setMobileMenuOpen(false)}
-            className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
-            aria-label="Close navigation menu"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+            <motion.div
+              id="mobile-navigation-drawer"
+              ref={drawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Mobile Navigation Drawer"
+              initial={shouldReduceMotion ? { opacity: 0 } : { x: "100%" }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { x: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { x: "100%" }}
+              transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+              className="fixed inset-y-0 right-0 z-50 w-[85vw] max-w-sm bg-white shadow-2xl flex flex-col justify-between overflow-y-auto md:hidden"
+            >
+              {/* Drawer Header */}
+              <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+                <Link 
+                  to="/" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-2xl font-bold tracking-tight text-gray-900"
+                >
+                  Adey<sup className="text-xs font-normal">®</sup>
+                </Link>
+                <button
+                  ref={closeButtonRef}
+                  id="mobile-nav-close-btn"
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+                  aria-label="Close navigation menu"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
         {/* Drawer Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
@@ -396,25 +446,25 @@ export default function Layout() {
               </p>
               <nav aria-label="Role Navigation" className="space-y-1">
                 <Link
-                  to="/dashboard"
+                  to={getRoleHomeRoute(user.role)}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    location.pathname === "/dashboard" ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
+                    location.pathname === getRoleHomeRoute(user.role) ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
                   }`}
                 >
                   <span className="flex items-center gap-3">
                     <LayoutDashboard className="w-4 h-4 text-[#2E7D32]" />
-                    <span>Dashboard</span>
+                    <span>{getPortalTitle(user.role)}</span>
                   </span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
 
                 {user.role === "consumer" && (
                   <Link
-                    to="/dashboard"
+                    to="/customer/orders"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isLinkActive("/dashboard") ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
+                      isLinkActive("/customer") ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
                     }`}
                   >
                     <span className="flex items-center gap-3">
@@ -427,10 +477,10 @@ export default function Layout() {
 
                 {user.role === "creator" && (
                   <Link
-                    to="/dashboard/analytics"
+                    to="/creator/analytics"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isLinkActive("/dashboard/analytics") ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
+                      isLinkActive("/creator/analytics") ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
                     }`}
                   >
                     <span className="flex items-center gap-3">
@@ -441,6 +491,21 @@ export default function Layout() {
                   </Link>
                 )}
 
+                {user.role === "admin" && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isLinkActive("/admin") ? "bg-green-50 text-[#2E7D32] font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-[#2E7D32]"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <ShieldCheck className="w-4 h-4 text-purple-700" />
+                      <span>Platform Oversight Hub</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </Link>
+                )}
 
                 {(user.role === "creator" || user.role === "brand") && (
                   <Link
@@ -548,11 +613,16 @@ export default function Layout() {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-[1440px] mx-auto">
-        <Outlet />
+        <PageTransition key={location.pathname}>
+          <Outlet />
+        </PageTransition>
       </main>
 
       {/* Footer Structure */}
@@ -562,7 +632,7 @@ export default function Layout() {
           {/* Top Footer: Brand & Newsletter */}
           <div className="flex flex-col lg:flex-row justify-between items-start gap-12 mb-16">
             <h2 className="text-6xl md:text-8xl font-bold tracking-tighter">
-              EthioInfluence<sup className="text-4xl md:text-6xl font-normal">®</sup>
+              Adey<sup className="text-4xl md:text-6xl font-normal">®</sup>
             </h2>
             
             <div className="w-full max-w-md">
@@ -583,7 +653,7 @@ export default function Layout() {
           {/* Middle Footer: Links & Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-16 text-sm">
             <div className="lg:col-span-2 text-gray-600 space-y-2">
-              <p className="font-semibold text-gray-900">EthioInfluence Commerce & Affiliate Ecosystem</p>
+              <p className="font-semibold text-gray-900">Adey Commerce & Affiliate Ecosystem</p>
               <p>Addis Ababa, Ethiopia</p>
               <p className="text-xs text-gray-500">
                 Empowering Ethiopian creators and local artisan brands through performance-driven social commerce and integrated Arifpay settlements.
@@ -618,7 +688,7 @@ export default function Layout() {
             <div>
               <h4 className="font-bold mb-4 text-gray-900">Account</h4>
               <ul className="space-y-3 text-gray-600">
-                <li><Link to={user ? "/dashboard" : "/login"} className="hover:text-[#2E7D32] transition-colors">My Portal</Link></li>
+                <li><Link to={user ? getRoleHomeRoute(user.role) : "/login"} className="hover:text-[#2E7D32] transition-colors">{user ? getPortalTitle(user.role) : "Sign In / Register"}</Link></li>
                 <li><Link to="/bag" className="hover:text-[#2E7D32] transition-colors">Shopping Bag</Link></li>
                 <li><Link to="/wishlist" className="hover:text-[#2E7D32] transition-colors">Saved Wishlist</Link></li>
                 {user && (user.role === "creator" || user.role === "brand") && (
@@ -646,7 +716,7 @@ export default function Layout() {
               <Link to="/terms" className="hover:text-[#212121]">Terms of Service</Link>
               <Link to="/privacy" className="hover:text-[#212121]">Privacy Policy</Link>
             </div>
-            <p>© 2026 EthioInfluence</p>
+            <p>© 2026 Adey</p>
           </div>
 
         </div>

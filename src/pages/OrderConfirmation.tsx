@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { getRoleHomeRoute } from "../utils/roleUtils";
 import {
   CheckCircle2,
   Package,
@@ -348,10 +349,10 @@ export default function OrderConfirmation() {
           Explore More Products <ArrowRight className="w-4 h-4" />
         </Link>
         <Link
-          to={user ? "/dashboard" : "/"}
+          to={user ? getRoleHomeRoute(user.role) : "/"}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-900 px-8 py-3.5 rounded-full font-medium transition-colors"
         >
-          {user ? "Go to Dashboard" : "Return to Home"}
+          {user ? "Go to My Portal" : "Return to Home"}
         </Link>
       </div>
     </div>

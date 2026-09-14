@@ -47,23 +47,53 @@ export function getPortalTitle(role?: string | null): string {
 export interface RoleOption {
   id: Role;
   label: string;
+  icon?: string;
   description: string;
 }
 
 export const USER_ROLE_OPTIONS: RoleOption[] = [
   {
-    id: "consumer",
-    label: "Buyer",
-    description: "Shop authentic local Ethiopian products and discover creator recommendations.",
-  },
-  {
     id: "creator",
     label: "Creator",
-    description: "Promote company campaigns, share shoppable links, and earn commissions.",
+    icon: "👤",
+    description: "Promote products, collaborate with brands, and earn commissions.",
   },
   {
     id: "brand",
-    label: "Company",
-    description: "Launch campaigns, manage your storefront catalog, and fulfill customer orders.",
+    label: "Company / Brand",
+    icon: "🏢",
+    description: "Sell products, create campaigns, and work with creators.",
+  },
+  {
+    id: "consumer",
+    label: "Customer",
+    icon: "🛍️",
+    description: "Discover products, shop, and receive creator discounts.",
   },
 ];
+
+/**
+ * Returns the designated portal landing route for each role:
+ * - creator -> /creator/dashboard
+ * - brand / company -> /company/dashboard
+ * - consumer / buyer / customer -> /customer
+ * - admin -> /admin/dashboard
+ */
+export function getRoleHomeRoute(role?: string | null): string {
+  if (!role) return "/customer";
+  switch (role.toLowerCase()) {
+    case "creator":
+      return "/creator/dashboard";
+    case "brand":
+    case "company":
+      return "/company/dashboard";
+    case "admin":
+      return "/admin/dashboard";
+    case "consumer":
+    case "buyer":
+    case "customer":
+    default:
+      return "/customer";
+  }
+}
+

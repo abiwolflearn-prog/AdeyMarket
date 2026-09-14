@@ -82,7 +82,7 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({
       status: "ok",
-      message: "EthioInfluence API is running",
+      message: "Adey API is running",
     });
   });
 

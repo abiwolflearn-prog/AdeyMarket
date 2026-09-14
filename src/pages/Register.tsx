@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ShoppingBag, Sparkles, Building2, Eye, EyeOff, Building, MapPin, Phone, Hash, Globe, Tag, AtSign, Send } from "lucide-react";
 import { useAuth, Role } from "../context/AuthContext";
-import { USER_ROLE_OPTIONS } from "../utils/roleUtils";
+import { USER_ROLE_OPTIONS, getRoleHomeRoute } from "../utils/roleUtils";
 import { CREATOR_NICHES } from "./ProfileEdit";
 
 export const BUSINESS_CATEGORIES = [
@@ -51,8 +51,9 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let registeredUser;
       if (role === "brand") {
-        await register({
+        registeredUser = await register({
           name,
           email,
           password,
@@ -66,7 +67,7 @@ export default function Register() {
           website: website.trim(),
         });
       } else if (role === "creator") {
-        await register({
+        registeredUser = await register({
           name,
           email,
           password,
@@ -82,25 +83,14 @@ export default function Register() {
           telegram: creatorTelegram.trim(),
         });
       } else {
-        await register({ name, email, password, role });
+        registeredUser = await register({ name, email, password, role });
       }
       toast.success("Account created successfully!");
-      navigate("/dashboard");
+      const targetPortal = getRoleHomeRoute(registeredUser?.role || role);
+      navigate(targetPortal);
     } catch (error: any) {
       const message = error.response?.data?.message || "Registration failed. Please try again.";
       toast.error(message);
-    }
-  };
-
-  const getRoleIcon = (roleId: Role) => {
-    switch (roleId) {
-      case "creator":
-        return Sparkles;
-      case "brand":
-        return Building2;
-      case "consumer":
-      default:
-        return ShoppingBag;
     }
   };
 
@@ -112,38 +102,44 @@ export default function Register() {
       <div className={`w-full ${isCompany || isCreator ? "max-w-xl" : "max-w-md"} p-8 space-y-6 bg-white rounded-3xl shadow-sm border border-stone-100 transition-all duration-300`}>
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
-            {isCompany ? "Register Your Company" : isCreator ? "Join as a Creator" : "Create an account"}
+            {isCompany ? "Register Your Company" : isCreator ? "Join as a Creator" : "Create a Customer Account"}
           </h1>
           <p className="text-sm text-stone-500 mt-2">
             {isCompany
-              ? "Join EthioInfluence to launch campaigns, manage your storefront, and partner with top creators."
+              ? "Join Adey to sell products, launch campaigns, and work with creators."
               : isCreator
-              ? "Monetize your influence, partner with local companies, and build your digital storefront."
-              : "Join EthioInfluence to explore campaigns, products, and creator deals."}
+              ? "Join Adey to promote products, collaborate with brands, and earn commissions."
+              : "Join Adey to discover products, shop, and receive creator discounts."}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Role selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-stone-700">I am joining as a...</label>
-            <div className="grid grid-cols-3 gap-3 mt-1">
+            <label className="text-sm font-semibold text-stone-900 block">
+              What are you joining Adey as?
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
               {USER_ROLE_OPTIONS.map((option) => {
-                const IconComponent = getRoleIcon(option.id);
                 const isSelected = role === option.id;
                 return (
                   <button
                     key={option.id}
                     type="button"
                     onClick={() => setRole(option.id)}
-                    className={`flex flex-col items-center justify-center gap-2 p-3 text-sm font-medium rounded-2xl border transition-all ${
+                    className={`flex flex-col text-left p-3.5 rounded-2xl border transition-all ${
                       isSelected
                         ? "bg-stone-900 border-stone-900 text-white shadow-md shadow-stone-900/10"
-                        : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50 hover:border-stone-300"
+                        : "bg-white border-stone-200 text-stone-700 hover:bg-stone-50 hover:border-stone-300"
                     }`}
                   >
-                    <IconComponent className={`w-5 h-5 ${isSelected ? "text-white" : "text-stone-400"}`} />
-                    {option.label}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xl shrink-0">{option.icon}</span>
+                      <span className="font-bold text-sm tracking-tight">{option.label}</span>
+                    </div>
+                    <p className={`text-xs leading-relaxed ${isSelected ? "text-stone-300" : "text-stone-500"}`}>
+                      {option.description}
+                    </p>
                   </button>
                 );
               })}

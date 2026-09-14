@@ -266,11 +266,17 @@ export const getOrders = async (req: AuthRequest, res: Response): Promise<void> 
     if (type === "referred") {
       query.referrerId = user._id;
     } else if (type === "purchased") {
-      query.buyerId = user._id;
+      query.$or = [
+        { buyerId: user._id },
+        { customerEmail: user.email ? user.email.toLowerCase() : "" }
+      ];
     } else {
       // Default to seller orders if brand or creator, or buyer orders if consumer
       if (user.role === "consumer") {
-        query.buyerId = user._id;
+        query.$or = [
+          { buyerId: user._id },
+          { customerEmail: user.email ? user.email.toLowerCase() : "" }
+        ];
       } else {
         query.sellerId = user._id;
       }

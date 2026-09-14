@@ -197,7 +197,7 @@ export default function SellerOrders() {
           <div className="text-2xl font-black text-stone-700">
             ETB {totalPlatformFees.toLocaleString()}
           </div>
-          <div className="text-xs text-stone-400 mt-1">EthioInfluence core fee</div>
+          <div className="text-xs text-stone-400 mt-1">Adey core fee</div>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-100 shadow-sm">

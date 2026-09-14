@@ -1,7 +1,7 @@
-# EthioInfluence 🇪🇹
+# Adey 🇪🇹
 > **Ethiopia's Premier Social Commerce & Creator Affiliate Marketplace**
 
-EthioInfluence bridges the gap between Ethiopian retail brands and content creators. It empowers creators to earn transparent commissions through tracked affiliate links and enables local brands to scale their digital sales with automated order fulfillment and domestic payment processing (Telebirr, Arifpay, CBE Birr).
+Adey bridges the gap between Ethiopian retail brands and content creators. It empowers creators to earn transparent commissions through tracked affiliate links and enables local brands to scale their digital sales with automated order fulfillment and domestic payment processing (Telebirr, Arifpay, CBE Birr).
 
 ---
 
@@ -71,7 +71,7 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. Run Automated End-to-End (E2E) Tests
-EthioInfluence includes a dedicated test runner verifying complete transactional flows:
+Adey includes a dedicated test runner verifying complete transactional flows:
 ```bash
 npm run test:e2e
 ```
@@ -121,4 +121,4 @@ npm run test:e2e
 ---
 
 ## 📄 License
-MIT License © 2026 EthioInfluence
+MIT License © 2026 Adey

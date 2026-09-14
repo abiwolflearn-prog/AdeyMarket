@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User, { IUser } from "../models/User";
 
 export interface AuthRequest extends Request {
@@ -16,10 +17,18 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
       // Verify token
       const jwtSecret = process.env.JWT_SECRET || "fallback_access_secret";
-      const decoded = jwt.verify(token, jwtSecret) as { userId: string };
+      const decoded = jwt.verify(token, jwtSecret) as { userId: string; email?: string; role?: string };
 
-      // Get user from the token, excluding the password hash
-      const user = await User.findById(decoded.userId).select("-passwordHash");
+      // Look up user by ID
+      let user: IUser | null = null;
+      if (decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)) {
+        user = await User.findById(decoded.userId).select("-passwordHash");
+      }
+
+      // Resilient fallback: If not found by ID (e.g. in-memory MongoDB restarted with new ObjectIds), check email
+      if (!user && decoded.email) {
+        user = await User.findOne({ email: decoded.email.toLowerCase() }).select("-passwordHash");
+      }
 
       if (!user) {
         res.status(401).json({ message: "Not authorized, user not found" });
@@ -47,8 +56,16 @@ export const optionalProtect = async (req: AuthRequest, res: Response, next: Nex
     try {
       const token = req.headers.authorization.split(" ")[1];
       const jwtSecret = process.env.JWT_SECRET || "fallback_access_secret";
-      const decoded = jwt.verify(token, jwtSecret) as { userId: string };
-      const user = await User.findById(decoded.userId).select("-passwordHash");
+      const decoded = jwt.verify(token, jwtSecret) as { userId: string; email?: string; role?: string };
+
+      let user: IUser | null = null;
+      if (decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)) {
+        user = await User.findById(decoded.userId).select("-passwordHash");
+      }
+      if (!user && decoded.email) {
+        user = await User.findOne({ email: decoded.email.toLowerCase() }).select("-passwordHash");
+      }
+
       if (user && user.status !== "suspended") {
         req.user = user;
       }

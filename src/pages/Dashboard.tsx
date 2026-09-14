@@ -1,9 +1,7 @@
 import React from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import CreatorDashboard from "./CreatorDashboard";
-import BrandDashboard from "./BrandDashboard";
-import BuyerDashboard from "./BuyerDashboard";
-import AdminDashboard from "./AdminDashboard";
+import { getRoleHomeRoute } from "../utils/roleUtils";
 import { Loader2 } from "lucide-react";
 
 export default function Dashboard() {
@@ -17,19 +15,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === "admin") {
-    return <AdminDashboard />;
-  }
-
-  if (user.role === "creator") {
-    return <CreatorDashboard />;
-  }
-
-  if (user.role === "brand") {
-    return <BrandDashboard />;
-  }
-
-  // Buyer (consumer) portal view
-  return <BuyerDashboard />;
+  return <Navigate to={getRoleHomeRoute(user.role)} replace />;
 }
+
 

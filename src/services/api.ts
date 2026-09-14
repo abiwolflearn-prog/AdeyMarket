@@ -67,25 +67,28 @@ api.interceptors.response.use(
       url.includes("/auth/reset-password");
 
     const hasStoredToken = typeof window !== "undefined" && !!localStorage.getItem("accessToken");
+    const hasStoredRefreshToken = typeof window !== "undefined" && !!localStorage.getItem("refreshToken");
 
-    // Only attempt refresh if 401, not already retried, not an auth endpoint, and user previously had a token
-    if (error.response?.status === 401 && !(originalRequest as any)._retry && !isAuthEndpoint && hasStoredToken) {
+    // Attempt refresh if 401, not already retried, not an auth endpoint, and user has token or refresh token
+    if (error.response?.status === 401 && !(originalRequest as any)._retry && !isAuthEndpoint && (hasStoredToken || hasStoredRefreshToken)) {
       (originalRequest as any)._retry = true;
 
       try {
+        const storedRefreshToken = typeof localStorage !== "undefined" ? localStorage.getItem("refreshToken") : null;
         const refreshResponse = await axios.post(
           `${currentBaseURL}/auth/refresh`,
-          {},
+          { refreshToken: storedRefreshToken },
           { withCredentials: true }
         );
 
-        const newAccessToken = refreshResponse.data.accessToken;
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data;
         
         // Store the new access token
-        localStorage.setItem("accessToken", newAccessToken);
+        if (newAccessToken) localStorage.setItem("accessToken", newAccessToken);
+        if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
         
         // Update the Authorization header of the failed request
-        if (originalRequest.headers) {
+        if (originalRequest.headers && newAccessToken) {
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
         
@@ -94,6 +97,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Refresh token is expired or invalid -> clean up local auth
         localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         
         // Only redirect to login if not already on an auth page
@@ -103,6 +107,13 @@ api.interceptors.response.use(
         
         return Promise.reject(refreshError);
       }
+    }
+
+    // If unauthenticated 401 with no tokens or retry already failed on a protected endpoint
+    if (error.response?.status === 401 && !isAuthEndpoint) {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
     }
 
     return Promise.reject(error);

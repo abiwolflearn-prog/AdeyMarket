@@ -5,6 +5,10 @@ export interface IUser extends Document {
   name: string;
   email: string;
   phone?: string;
+  city?: string;
+  address?: string;
+  bio?: string;
+  website?: string;
   passwordHash: string;
   role: "creator" | "brand" | "consumer" | "admin";
   profilePic?: string;
@@ -30,6 +34,22 @@ const UserSchema: Schema<IUser> = new Schema(
     phone: {
       type: String,
       trim: true,
+      default: "",
+    },
+    city: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+    },
+    website: {
+      type: String,
       default: "",
     },
     passwordHash: { 

@@ -148,10 +148,10 @@ export default function CreatorAnalytics() {
               <span>Retry</span>
             </button>
             <Link
-              to="/dashboard"
+              to="/creator"
               className="inline-flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-5 py-2.5 rounded-xl transition-colors min-h-[44px]"
             >
-              Back to Dashboard
+              Back to Creator Portal
             </Link>
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function CreatorAnalytics() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 bg-stone-800 text-stone-300 text-xs font-medium px-3 py-1 rounded-full">
               <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-400" />
-              <span>EthioInfluence 100% Escrow Protection</span>
+              <span>Adey 100% Escrow Protection</span>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight">
               Commission Liquidity & Escrow Breakdown

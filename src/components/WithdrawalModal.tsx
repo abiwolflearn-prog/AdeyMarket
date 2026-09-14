@@ -4,6 +4,7 @@ import { X, Smartphone, Building2, Loader2, CheckCircle2, ArrowRight } from "luc
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import { ETHIOPIAN_BANKS } from "../pages/ProfileEdit";
+import { AnimatedModal } from "./animations/AnimatedModal";
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -110,8 +111,8 @@ export default function WithdrawalModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-stone-100 relative">
+    <AnimatedModal isOpen={isOpen} onClose={onClose} maxWidth="max-w-lg">
+      <div className="p-6 md:p-8">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-6">
           <div>
@@ -321,6 +322,6 @@ export default function WithdrawalModal({
           </div>
         </form>
       </div>
-    </div>
+    </AnimatedModal>
   );
 }

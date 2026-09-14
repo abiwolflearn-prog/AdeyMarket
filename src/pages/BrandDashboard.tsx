@@ -35,7 +35,11 @@ import {
   ArrowDownRight,
   X,
   Send,
-  Check
+  Check,
+  Sparkles,
+  Globe,
+  MapPin,
+  Phone
 } from "lucide-react";
 
 interface IProduct {
@@ -186,6 +190,21 @@ export default function BrandDashboard() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [isSubmittingShipping, setIsSubmittingShipping] = useState(false);
 
+  // Guided Initial Brand Setup state (Requirement 7)
+  const [showSetupModal, setShowSetupModal] = useState<boolean>(false);
+  const [setupCompanyName, setSetupCompanyName] = useState<string>("");
+  const [setupShopSlug, setSetupShopSlug] = useState<string>("");
+  const [setupLogo, setSetupLogo] = useState<string>("");
+  const [setupDescription, setSetupDescription] = useState<string>("");
+  const [setupCategory, setSetupCategory] = useState<string>("Fashion & Traditional Garments");
+  const [setupCity, setSetupCity] = useState<string>("Addis Ababa");
+  const [setupAddress, setSetupAddress] = useState<string>("");
+  const [setupPhone, setSetupPhone] = useState<string>("");
+  const [setupWebsite, setSetupWebsite] = useState<string>("");
+  const [setupTelegram, setSetupTelegram] = useState<string>("");
+  const [setupDefaultRate, setSetupDefaultRate] = useState<number>(15);
+  const [isSubmittingSetup, setIsSubmittingSetup] = useState<boolean>(false);
+
   const fetchAllCompanyData = async () => {
     setIsLoading(true);
     try {
@@ -235,10 +254,24 @@ export default function BrandDashboard() {
         setCampaigns([]);
       }
 
-      if (shopRes.status === "fulfilled" && shopRes.value?.data) {
+      if (shopRes.status === "fulfilled" && shopRes.value?.data && shopRes.value.data.shopSlug) {
         setShop(shopRes.value.data);
+        setSetupCompanyName(user?.name || "");
+        setSetupShopSlug(shopRes.value.data.shopSlug || "");
+        setSetupDescription(shopRes.value.data.description || "");
+        setSetupLogo(shopRes.value.data.logo || "");
+        setSetupDefaultRate(shopRes.value.data.defaultCommissionRate ?? 15);
       } else {
         setShop(null);
+        if (user) {
+          setSetupCompanyName(user.name || "");
+          const slugCandidate = (user.name || "brand")
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "");
+          setSetupShopSlug(slugCandidate || "my-brand");
+        }
       }
 
       if (txRes.status === "fulfilled" && txRes.value?.data) {
@@ -281,6 +314,51 @@ export default function BrandDashboard() {
       toast.error(err.response?.data?.message || "Failed to review application");
     } finally {
       setIsReviewSubmitting(false);
+    }
+  };
+
+  const handleSaveBrandSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!setupShopSlug.trim()) {
+      toast.error("Please enter a valid storefront handle / URL slug");
+      return;
+    }
+    try {
+      setIsSubmittingSetup(true);
+      const res = await api.post("/shop/activate", {
+        shopSlug: setupShopSlug.trim().toLowerCase(),
+        description: setupDescription.trim() || `${setupCompanyName || user?.name} - Authentic Ethiopian Brand Store`,
+        defaultCommissionRate: Number(setupDefaultRate) || 15
+      });
+
+      try {
+        await api.put("/profile", {
+          name: setupCompanyName.trim() || user?.name,
+          phone: setupPhone.trim(),
+          city: setupCity.trim(),
+          address: setupAddress.trim(),
+          bio: setupDescription.trim(),
+          website: setupWebsite.trim()
+        });
+      } catch (profileErr) {
+        // Non-blocking profile update
+      }
+
+      setShop(res.data?.shop || {
+        shopSlug: setupShopSlug.trim().toLowerCase(),
+        description: setupDescription.trim(),
+        defaultCommissionRate: Number(setupDefaultRate) || 15,
+        isActive: true,
+        logo: setupLogo
+      });
+
+      setShowSetupModal(false);
+      toast.success("Initial Brand Setup complete! Welcome to your Company Portal.");
+      fetchAllCompanyData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to complete brand setup");
+    } finally {
+      setIsSubmittingSetup(false);
     }
   };
 
@@ -423,15 +501,56 @@ export default function BrandDashboard() {
             <Plus className="w-4 h-4 text-stone-900" />
             <span>Add Product</span>
           </Link>
-          <Link
-            to="/shop-settings"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-stone-800 hover:bg-stone-700 text-stone-200 text-sm font-medium px-4 py-2.5 rounded-xl border border-stone-700 transition-colors min-h-[44px]"
+          <button
+            onClick={() => setShowSetupModal(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors min-h-[44px]"
           >
-            <Sliders className="w-4 h-4" />
-            <span>Shop Settings</span>
-          </Link>
+            <Sliders className="w-4 h-4 text-stone-950" />
+            <span>{shop?.shopSlug ? "Brand Settings" : "Setup Brand"}</span>
+          </button>
         </div>
       </div>
+
+      {/* Guided Initial Brand Setup Onboarding Card (Requirement 7) */}
+      {(!shop || !shop.shopSlug || !shop.isActive) && (
+        <div className="bg-gradient-to-r from-stone-900 via-emerald-950 to-stone-900 text-white rounded-3xl p-6 sm:p-8 border border-emerald-500/30 shadow-md relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
+                <Sparkles className="w-3.5 h-3.5" /> Initial Brand Setup Required
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Launch Your Official Adey Brand Storefront
+              </h2>
+              <p className="text-sm text-stone-300 leading-relaxed">
+                Welcome to Adey! Complete your company brand setup to unlock product listings, launch affiliate campaigns, review creator applications, and accept escrow-secured customer orders.
+              </p>
+              <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs text-emerald-200">
+                <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Brand Identity & Logo
+                </span>
+                <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Storefront URL Handle
+                </span>
+                <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Business Location & Phone
+                </span>
+                <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Creator Commission %
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowSetupModal(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold px-6 py-3.5 rounded-xl shadow-md transition-all text-sm shrink-0 min-h-[44px]"
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Start Guided Brand Setup</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. Navigation Module Tabs (Direct access to all 10 areas) */}
       <div className="bg-white rounded-2xl border border-stone-200/80 p-2 shadow-xs overflow-x-auto">
@@ -1871,6 +1990,253 @@ export default function BrandDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Guided Initial Brand Setup Modal (Requirement 7) */}
+      {showSetupModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-stone-200 overflow-hidden my-8">
+            <div className="bg-stone-900 text-white p-6 sm:p-7 flex items-start justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                  <Building2 className="w-4 h-4" />
+                  <span>Company Brand Onboarding</span>
+                </div>
+                <h3 className="text-xl font-bold tracking-tight text-white">
+                  {shop?.shopSlug ? "Update Company Brand Settings" : "Initial Company Brand Setup"}
+                </h3>
+                <p className="text-xs text-stone-400">
+                  Configure your official brand identity, marketplace storefront URL, and creator partnership defaults.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSetupModal(false)}
+                className="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBrandSetup} className="p-6 sm:p-7 space-y-6 max-h-[75vh] overflow-y-auto">
+              {/* Section 1: Brand Identity */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                  <Store className="w-4 h-4 text-[#2E7D32]" />
+                  <span>1. Brand Identity & Storefront</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Company / Brand Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={setupCompanyName}
+                      onChange={(e) => setSetupCompanyName(e.target.value)}
+                      placeholder="e.g. Addis Leathercraft"
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Storefront Handle (Slug) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center">
+                      <span className="bg-stone-100 border border-r-0 border-stone-200 px-3 py-2.5 rounded-l-xl text-xs text-stone-500 font-mono">
+                        /shop/
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={setupShopSlug}
+                        onChange={(e) => setSetupShopSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                        placeholder="my-brand-name"
+                        className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-r-xl text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Logo Image URL
+                  </label>
+                  <input
+                    type="url"
+                    value={setupLogo}
+                    onChange={(e) => setSetupLogo(e.target.value)}
+                    placeholder="https://example.com/logo.jpg (or image hosting link)"
+                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Brand Story & Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={setupDescription}
+                    onChange={(e) => setSetupDescription(e.target.value)}
+                    placeholder="Tell buyers and creators about your authentic Ethiopian products, craft heritage, and values..."
+                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Business & Contact */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                  <MapPin className="w-4 h-4 text-[#2E7D32]" />
+                  <span>2. Business Details & Contact</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Business Category
+                    </label>
+                    <select
+                      value={setupCategory}
+                      onChange={(e) => setSetupCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    >
+                      <option value="Fashion & Traditional Garments">Fashion & Traditional Garments</option>
+                      <option value="Coffee, Spices & Agro">Coffee, Spices & Agro</option>
+                      <option value="Leather Goods & Footwear">Leather Goods & Footwear</option>
+                      <option value="Home, Decor & Artisan Crafts">Home, Decor & Artisan Crafts</option>
+                      <option value="Cosmetics & Natural Beauty">Cosmetics & Natural Beauty</option>
+                      <option value="Electronics & Accessories">Electronics & Accessories</option>
+                      <option value="Books & Cultural Media">Books & Cultural Media</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      City / Region
+                    </label>
+                    <input
+                      type="text"
+                      value={setupCity}
+                      onChange={(e) => setSetupCity(e.target.value)}
+                      placeholder="e.g. Addis Ababa (Bole)"
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Physical Store / Fulfillment Address
+                    </label>
+                    <input
+                      type="text"
+                      value={setupAddress}
+                      onChange={(e) => setSetupAddress(e.target.value)}
+                      placeholder="e.g. Bole Sub-city, Near Medhanialem"
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Official Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={setupPhone}
+                      onChange={(e) => setSetupPhone(e.target.value)}
+                      placeholder="+251 91 234 5678"
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Official Website / Portfolio
+                    </label>
+                    <input
+                      type="url"
+                      value={setupWebsite}
+                      onChange={(e) => setSetupWebsite(e.target.value)}
+                      placeholder="https://mybrand.et"
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Telegram Channel or Handle
+                    </label>
+                    <input
+                      type="text"
+                      value={setupTelegram}
+                      onChange={(e) => setSetupTelegram(e.target.value)}
+                      placeholder="@mybrand_official"
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Creator Affiliate Terms */}
+              <div className="space-y-3 bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100">
+                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-emerald-700" />
+                  <span>3. Creator Affiliate Partnership Defaults</span>
+                </h4>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Set the default commission percentage you offer to verified content creators when they drive customer orders through their affiliate link or promo code.
+                </p>
+                <div>
+                  <label className="block text-xs font-bold text-stone-800 mb-1.5">
+                    Default Creator Commission Rate (%)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={70}
+                      required
+                      value={setupDefaultRate}
+                      onChange={(e) => setSetupDefaultRate(Number(e.target.value))}
+                      className="w-32 px-3 py-2 bg-white border border-stone-300 rounded-xl text-sm font-bold text-stone-900 text-center focus:outline-hidden focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                    />
+                    <span className="text-xs text-stone-500 font-medium">
+                      % per verified delivered sale (recommended: 10% - 25%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowSetupModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-xs font-semibold hover:bg-stone-50 transition-colors"
+                >
+                  Skip for Now
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingSetup}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 disabled:opacity-50 min-h-[44px]"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSubmittingSetup ? "Saving Brand Setup..." : "Save & Launch Storefront"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

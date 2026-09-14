@@ -10,9 +10,11 @@ import {
   User as UserIcon, 
   KeyRound, 
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { getRoleHomeRoute } from "../utils/roleUtils";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -34,9 +36,9 @@ export default function Login() {
     e.preventDefault();
     setErrorMessage(null);
     try {
-      await login({ email: email.trim(), password });
+      const user = await login({ email: email.trim(), password });
       toast.success("Logged in successfully!");
-      navigate("/dashboard");
+      navigate(getRoleHomeRoute(user.role));
     } catch (error: any) {
       const message =
         error.response?.data?.message ||
@@ -50,11 +52,11 @@ export default function Login() {
     e.preventDefault();
     setErrorMessage(null);
     try {
-      await resetPassword({ email: resetEmail.trim(), newPassword });
+      const user = await resetPassword({ email: resetEmail.trim(), newPassword });
       setResetSuccess(true);
       toast.success("Password reset successfully! Logged in.");
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate(getRoleHomeRoute(user.role));
       }, 1000);
     } catch (error: any) {
       const message = error.response?.data?.message || "Failed to reset password. Please verify your email.";
@@ -68,9 +70,9 @@ export default function Login() {
     setPassword(demoPass);
     setErrorMessage(null);
     try {
-      await login({ email: demoEmail, password: demoPass });
+      const user = await login({ email: demoEmail, password: demoPass });
       toast.success(`Logged in as ${demoEmail}!`);
-      navigate("/dashboard");
+      navigate(getRoleHomeRoute(user.role));
     } catch (error: any) {
       const message = error.response?.data?.message || "Demo login failed.";
       setErrorMessage(message);
@@ -259,7 +261,7 @@ export default function Login() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Creator</p>
-                <p className="text-[10px] text-stone-400 truncate">Selamawit</p>
+                <p className="text-[10px] text-stone-400 truncate">→ /creator/dashboard</p>
               </div>
             </button>
 
@@ -274,22 +276,7 @@ export default function Login() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Company</p>
-                <p className="text-[10px] text-stone-400 truncate">Addis Heritage</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => handleQuickLogin("abelbimrew868@gmail.com", "Password123!")}
-              className="flex items-center gap-2 p-2.5 text-left border border-stone-200 rounded-xl hover:border-stone-900 hover:bg-stone-50 transition-all group"
-            >
-              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
-                <UserIcon className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Creator</p>
-                <p className="text-[10px] text-stone-400 truncate">Abel Bimrew</p>
+                <p className="text-[10px] text-stone-400 truncate">→ /company/dashboard</p>
               </div>
             </button>
 
@@ -303,8 +290,23 @@ export default function Login() {
                 <ShoppingBag className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Buyer</p>
-                <p className="text-[10px] text-stone-400 truncate">Dawit Abebe</p>
+                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Customer</p>
+                <p className="text-[10px] text-stone-400 truncate">→ /customer</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => handleQuickLogin("admin@adey.com", "Password123!")}
+              className="flex items-center gap-2 p-2.5 text-left border border-stone-200 rounded-xl hover:border-stone-900 hover:bg-stone-50 transition-all group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-stone-800 group-hover:text-stone-950 truncate">Admin</p>
+                <p className="text-[10px] text-stone-400 truncate">→ /admin/dashboard</p>
               </div>
             </button>
           </div>
