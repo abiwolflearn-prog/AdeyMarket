@@ -13,7 +13,7 @@ export const connectDB = async () => {
   }
 
   try {
-    const uri = process.env.MONGO_URI;
+    const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
     if (uri) {
       try {

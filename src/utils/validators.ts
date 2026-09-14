@@ -5,6 +5,7 @@ export const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
   role: Joi.string().valid("creator", "brand", "consumer").default("consumer"),
+  displayName: Joi.string().max(100).allow("", null).optional(),
   // Company fields
   companyName: Joi.string().max(100).allow("", null).optional(),
   phone: Joi.string().max(30).allow("", null).optional(),
@@ -12,7 +13,7 @@ export const registerSchema = Joi.object({
   address: Joi.string().max(200).allow("", null).optional(),
   businessCategory: Joi.string().max(100).allow("", null).optional(),
   taxId: Joi.string().max(50).allow("", null).optional(),
-  website: Joi.string().uri().allow("", null).optional(),
+  website: Joi.string().max(250).allow("", null).optional(),
   // Creator fields
   username: Joi.string().max(50).allow("", null).optional(),
   niche: Joi.string().max(100).allow("", null).optional(),
@@ -21,7 +22,7 @@ export const registerSchema = Joi.object({
   instagram: Joi.string().max(150).allow("", null).optional(),
   youtube: Joi.string().max(150).allow("", null).optional(),
   telegram: Joi.string().max(150).allow("", null).optional(),
-});
+}).unknown(true);
 
 export const loginSchema = Joi.object({
   email: Joi.string().email().required(),

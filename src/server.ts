@@ -128,6 +128,11 @@ async function startServer() {
   );
 
   app.use(
+    "/api/posts",
+    (await import("./routes/postRoutes")).default
+  );
+
+  app.use(
     "/api/agreements",
     (await import("./routes/agreementRoutes")).default
   );

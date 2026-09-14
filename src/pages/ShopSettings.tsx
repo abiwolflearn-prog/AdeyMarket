@@ -179,7 +179,7 @@ export default function ShopSettings() {
               <label className="text-sm font-medium text-stone-700">Shop URL Slug</label>
               <div className="flex rounded-xl shadow-sm">
                 <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-stone-200 bg-stone-50 text-stone-500 sm:text-sm">
-                  ethioinfluence.com/shop/
+                  adeymarket.com/shop/
                 </span>
                 <input
                   type="text"

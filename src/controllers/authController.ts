@@ -59,34 +59,45 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (user) {
-      // If brand/company, initialize BrandProfile with provided onboarding data
-      if (user.role === "brand") {
-        await BrandProfile.create({
-          userId: user._id,
-          companyName: (companyName && companyName.trim()) || name.trim(),
-          phone: phone ? phone.trim() : "",
-          city: city ? city.trim() : "",
-          address: address ? address.trim() : "",
-          businessCategory: businessCategory ? businessCategory.trim() : "",
-          taxId: taxId ? taxId.trim() : "",
-          website: website ? website.trim() : "",
-          isApproved: false,
-        });
-      } else if (user.role === "creator") {
-        await CreatorProfile.create({
-          userId: user._id,
-          displayName: name.trim(),
-          username: username ? username.trim().toLowerCase() : "",
-          niche: niche ? niche.trim() : "",
-          city: city ? city.trim() : "",
-          bio: bio ? bio.trim() : "",
-          socialLinks: {
-            tiktok: tiktok ? tiktok.trim() : "",
-            instagram: instagram ? instagram.trim() : "",
-            youtube: youtube ? youtube.trim() : "",
-            telegram: telegram ? telegram.trim() : "",
-          },
-        });
+      try {
+        // If brand/company, initialize BrandProfile with provided onboarding data
+        if (user.role === "brand") {
+          await BrandProfile.create({
+            userId: user._id,
+            companyName: (companyName && companyName.trim()) || name.trim(),
+            phone: phone ? phone.trim() : "",
+            city: city ? city.trim() : "",
+            address: address ? address.trim() : "",
+            businessCategory: businessCategory ? businessCategory.trim() : "",
+            taxId: taxId ? taxId.trim() : "",
+            website: website ? website.trim() : "",
+            isApproved: false,
+          });
+        } else if (user.role === "creator") {
+          let cleanUsername = username ? username.trim().toLowerCase().replace(/^@/, "") : "";
+          if (!cleanUsername) {
+            cleanUsername = name.trim().toLowerCase().replace(/\s+/g, "_");
+          }
+          await CreatorProfile.create({
+            userId: user._id,
+            displayName: name.trim(),
+            username: cleanUsername,
+            niche: niche ? niche.trim() : "",
+            city: city ? city.trim() : "",
+            bio: bio ? bio.trim() : "",
+            socialLinks: {
+              tiktok: tiktok ? tiktok.trim() : "",
+              instagram: instagram ? instagram.trim() : "",
+              youtube: youtube ? youtube.trim() : "",
+              telegram: telegram ? telegram.trim() : "",
+            },
+          });
+        }
+      } catch (profileError: any) {
+        // Rollback user creation if profile setup fails
+        await User.findByIdAndDelete(user._id);
+        res.status(400).json({ message: profileError.message || "Failed to create profile for user" });
+        return;
       }
 
       const { accessToken, refreshToken } = generateTokens(res, user._id.toString(), user.email, user.role);

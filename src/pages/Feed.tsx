@@ -135,13 +135,14 @@ export default function Feed() {
       ]);
 
       if (productsRes.status === "fulfilled") {
-        setProducts(productsRes.value.data || []);
+        setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
       } else {
         console.error("Failed to load products:", productsRes.reason);
       }
 
       if (campaignsRes.status === "fulfilled") {
-        const activeList = (campaignsRes.value.data || []).filter(
+        const dataList = Array.isArray(campaignsRes.value.data) ? campaignsRes.value.data : [];
+        const activeList = dataList.filter(
           (c: CampaignItem) => c.status === "active"
         );
         setCampaigns(activeList);
@@ -150,7 +151,8 @@ export default function Feed() {
       }
 
       if (shopsRes.status === "fulfilled") {
-        setShops((shopsRes.value.data || []).slice(0, 6)); // Top 6 shops
+        const shopList = Array.isArray(shopsRes.value.data) ? shopsRes.value.data : [];
+        setShops(shopList.slice(0, 6)); // Top 6 shops
       } else {
         console.error("Failed to load shops:", shopsRes.reason);
       }

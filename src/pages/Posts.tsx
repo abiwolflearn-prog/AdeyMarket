@@ -122,40 +122,57 @@ export default function Posts() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch live products and active campaigns concurrently
-      const [productsRes, campaignsRes] = await Promise.allSettled([
+      // Fetch live posts, products, and active campaigns concurrently
+      const [postsRes, productsRes, campaignsRes] = await Promise.allSettled([
+        api.get("/posts"),
         api.get("/products"),
         api.get("/campaigns", { params: { status: "active" } }),
       ]);
 
+      if (postsRes.status === "fulfilled" && Array.isArray(postsRes.value.data)) {
+        const fetchedPosts: CreatorPost[] = postsRes.value.data.map((p: any) => ({
+          _id: p._id,
+          creatorId: typeof p.creatorId === "object" ? p.creatorId._id : p.creatorId,
+          creatorName: p.creatorName || p.creatorId?.name || "Creator",
+          creatorUsername: p.creatorUsername || p.creatorId?.name?.toLowerCase().replace(/\s+/g, "_") || "creator",
+          creatorAvatar: p.creatorAvatar || p.creatorId?.profilePic || undefined,
+          caption: p.caption,
+          mediaUrl: p.mediaUrl,
+          createdAt: p.createdAt,
+          taggedProductId: typeof p.taggedProductId === "object" ? p.taggedProductId._id : p.taggedProductId,
+          category: p.category || p.taggedProductId?.category || "Fashion & Leather",
+        }));
+        setPosts(fetchedPosts);
+      } else {
+        console.warn("API posts fetch returned empty or failed, checking localStorage fallback");
+        const savedPostsRaw = localStorage.getItem(LOCAL_STORAGE_POSTS_KEY);
+        if (savedPostsRaw) {
+          try {
+            const parsed = JSON.parse(savedPostsRaw);
+            if (Array.isArray(parsed)) {
+              setPosts(parsed);
+            }
+          } catch (e) {
+            console.error("Error parsing saved posts:", e);
+          }
+        }
+      }
+
       let loadedProducts: ProductItem[] = [];
       if (productsRes.status === "fulfilled") {
-        loadedProducts = productsRes.value.data || [];
+        loadedProducts = Array.isArray(productsRes.value.data) ? productsRes.value.data : [];
         setProducts(loadedProducts);
       } else {
         console.error("Failed to load products:", productsRes.reason);
       }
 
       if (campaignsRes.status === "fulfilled") {
-        const activeList = (campaignsRes.value.data || []).filter(
+        const activeList = (Array.isArray(campaignsRes.value.data) ? campaignsRes.value.data : []).filter(
           (c: CampaignItem) => c.status === "active"
         );
         setCampaigns(activeList);
       } else {
         console.error("Failed to load campaigns:", campaignsRes.reason);
-      }
-
-      // Load saved creator posts from localStorage
-      const savedPostsRaw = localStorage.getItem(LOCAL_STORAGE_POSTS_KEY);
-      if (savedPostsRaw) {
-        try {
-          const parsed = JSON.parse(savedPostsRaw);
-          if (Array.isArray(parsed)) {
-            setPosts(parsed);
-          }
-        } catch (e) {
-          console.error("Error parsing saved posts:", e);
-        }
       }
 
       if (productsRes.status === "rejected" && campaignsRes.status === "rejected") {
@@ -226,7 +243,7 @@ export default function Posts() {
   };
 
   // Create & Publish a Shoppable Post
-  const handleCreatePost = (e: React.FormEvent) => {
+  const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!user) {
@@ -251,17 +268,25 @@ export default function Posts() {
     setIsSubmittingPost(true);
 
     try {
-      const newPost: CreatorPost = {
-        _id: `post_${Date.now()}`,
-        creatorId: user._id || "creator",
-        creatorName: user.name,
-        creatorUsername: user.name.toLowerCase().replace(/\s+/g, ""),
-        creatorAvatar: (user as any).profilePic || undefined,
+      const res = await api.post("/posts", {
         caption: newCaption.trim(),
         mediaUrl: media,
-        createdAt: new Date().toISOString(),
         taggedProductId: selectedProductId,
         category: taggedProduct?.category || "Fashion & Leather",
+      });
+
+      const createdData = res.data;
+      const newPost: CreatorPost = {
+        _id: createdData._id,
+        creatorId: typeof createdData.creatorId === "object" ? createdData.creatorId._id : (user._id || "creator"),
+        creatorName: createdData.creatorName || user.name,
+        creatorUsername: createdData.creatorUsername || user.name.toLowerCase().replace(/\s+/g, ""),
+        creatorAvatar: createdData.creatorAvatar || (user as any).profilePic || undefined,
+        caption: createdData.caption,
+        mediaUrl: createdData.mediaUrl,
+        createdAt: createdData.createdAt || new Date().toISOString(),
+        taggedProductId: typeof createdData.taggedProductId === "object" ? createdData.taggedProductId._id : selectedProductId,
+        category: createdData.category || taggedProduct?.category || "Fashion & Leather",
       };
 
       const updatedPosts = [newPost, ...posts];
@@ -273,9 +298,9 @@ export default function Posts() {
       setNewCaption("");
       setNewMediaUrl("");
       setSelectedProductId("");
-    } catch (err) {
-      console.error("Error creating post:", err);
-      toast.error("Failed to publish post.");
+    } catch (err: any) {
+      console.error("Error creating post via API:", err);
+      toast.error(err.response?.data?.message || "Failed to publish post.");
     } finally {
       setIsSubmittingPost(false);
     }

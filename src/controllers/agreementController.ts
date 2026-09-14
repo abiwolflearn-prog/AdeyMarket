@@ -562,7 +562,7 @@ export const getAgreementCredentials = async (req: AuthRequest, res: Response): 
 
     const campaign = agreement.campaignId as any;
     const products = agreement.products as any[];
-    const baseUrl = process.env.CLIENT_URL || "https://ethioinfluence.com";
+    const baseUrl = process.env.CLIENT_URL || "https://adeymarket.vercel.app";
 
     const productLinks = products.map((prod: any) => ({
       productId: prod._id,
